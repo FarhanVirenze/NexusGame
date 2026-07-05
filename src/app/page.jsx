@@ -19,7 +19,7 @@ export default async function PageComponent() {
 <div className="relative w-full h-full">
 
 <div className="slide absolute inset-0 w-full h-full z-10">
-<img alt="Esports Tournament" className="absolute inset-0 w-full h-full object-cover opacity-70" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8yh8CaCp9Q7yULDEtlazLC5PgORJzdj4l3D8RMKVti5zBcTIi4cxgxhNPnGdB6QzbMQzwWkoquIm8NWQJsVVZ8g7-s0YZ8tPj-J3V4-uvOaVyy4IJAmVF0jxBUHCMrBbZTsh_nHkGrJ--RogSV-Lt5jmMqTbiU9PuYm5Ctzf-tCZJXZq_bCauW2s4ZGhJmGn7A-xMvFnBBc_uz7Tmmp_07huxwSNX2sbHB4VUn3XmjCyJkRQmpzImkNBlg_tQUscS-UriLgAoyzrG" />
+<img alt="Mobile Legends" className="absolute inset-0 w-full h-full object-cover opacity-70" src="/images/mobile-legend.png" />
 <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent"></div>
 <div className="absolute inset-0 flex items-center">
 <div className="max-w-container-max w-full mx-auto px-margin-mobile md:px-margin-desktop relative z-20">
@@ -37,7 +37,7 @@ export default async function PageComponent() {
 </div>
 
 <div className="slide absolute inset-0 w-full h-full z-0 opacity-0">
-<img alt="Racing Game" className="absolute inset-0 w-full h-full object-cover opacity-70" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJNth84DxdI6lw-e8CSgjPbm9DCjliXq9DlLy0LFvBN6N_jceNY1xDqLOe_C7NeJKTOGUJVqawDsld5iqC3EEywJ4F7ZAQTiO7lEpIrtHjQ2nmZ_nQ9y19b0gokpswYaWPy0rHIlfAPfP6RqGq-D7CMXdJeWTivFQbpIgSVUKSEoQL6tFXuIgr_aT-iya0S4ydCtz9Sun8xCwo0lNAZmhy4qpMjEiBf4tSX0nWOL9ENY9fdQfQV8TLrJvk992UJkEbpAz1fSDZuxab" />
+<img alt="Free Fire" className="absolute inset-0 w-full h-full object-cover opacity-70 object-top" src="/images/freefire.png" />
 <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent"></div>
 <div className="absolute inset-0 flex items-center">
 <div className="max-w-container-max w-full mx-auto px-margin-mobile md:px-margin-desktop relative z-20">
@@ -55,7 +55,7 @@ export default async function PageComponent() {
 </div>
 
 <div className="slide absolute inset-0 w-full h-full z-0 opacity-0">
-<img alt="Fantasy Game" className="absolute inset-0 w-full h-full object-cover opacity-70" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCx2ScEW7CDFo47u6owgovQy4IkO9Xcs0p9pypLl_PCow9eiFN2T0XF63CCUiQjgB735FMgQZqbug2DpJkvOv4BoBLN9vypD53Ij6URpjQWlOUYAlFA6JuPMZE11NQES0n4rZB73BG5uv-Nd7WPjj9wi4w6ma0hnplMN3sLF47fNTNE-d1S5t-oqt3OeMUctaxyEPqvKXN1k0qVJ8m6VYamuV4HpizfknEcy0Xi0i8qykv6-f0Ken3m9hNL-4xf_e9QftbqLfOkOPQU" />
+<img alt="Valorant" className="absolute inset-0 w-full h-full object-cover opacity-70 object-top" src="/images/valorant.png" />
 <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent"></div>
 <div className="absolute inset-0 flex items-center">
 <div className="max-w-container-max w-full mx-auto px-margin-mobile md:px-margin-desktop relative z-20">
@@ -89,6 +89,11 @@ export default async function PageComponent() {
 </button>
 </div>
 </div>
+</div>
+<div className="absolute bottom-0 left-0 w-full overflow-hidden leading-[0] z-30 pointer-events-none">
+  <svg className="relative block w-full h-[30px] md:h-[60px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+    <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" className="fill-surface-container-lowest"></path>
+  </svg>
 </div>
 </section>
 
