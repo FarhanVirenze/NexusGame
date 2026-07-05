@@ -1,8 +1,8 @@
 "use client"
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function InvoicePage() {
+function InvoiceContent() {
   const searchParams = useSearchParams();
   const transactionId = searchParams.get('id');
   const [data, setData] = useState(null);
@@ -230,5 +230,17 @@ export default function InvoicePage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function InvoicePage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', fontFamily: "'Hanken Grotesk', sans-serif", background: '#f8f9fa' }}>
+        <p style={{ color: '#666' }}>Memuat halaman invoice...</p>
+      </div>
+    }>
+      <InvoiceContent />
+    </Suspense>
   );
 }
