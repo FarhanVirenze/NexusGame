@@ -1,8 +1,15 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Nexus Game",
-  description: "Radiant Gaming Hub",
+  title: "NexusPay",
+  description: "Platform top-up game cepat, aman, dan terpercaya.",
+  icons: {
+    icon: [
+      { url: "/images/logonexus.png", type: "image/png" },
+    ],
+    apple: "/images/logonexus.png",
+    shortcut: "/images/logonexus.png",
+  },
 };
 
 export default function RootLayout({ children }) {

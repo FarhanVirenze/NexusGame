@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
 @theme {
   --color-surface-container-low: #f0f3ff;
   --color-on-secondary-fixed-variant: #783200;
@@ -61,4 +65,40 @@
   --spacing-margin-mobile: 16px;
   --spacing-container-max: 1280px;
   --spacing-gutter: 24px;
+}
+
+@keyframes hero-wave-drift {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.hero-wave-divider {
+  line-height: 0;
+}
+
+.hero-wave-layer {
+  animation: hero-wave-drift 18s linear infinite;
+}
+
+.hero-wave-layer-mid {
+  animation-duration: 14s;
+  animation-direction: reverse;
+}
+
+.hero-wave-layer-front {
+  animation: none;
+}
+
+.hero-wave-glow {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(137, 206, 255, 0.5), transparent);
+  opacity: 0.6;
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -11,10 +12,8 @@ export default function Footer() {
           
           {/* Brand Info */}
           <div className="col-span-1 md:col-span-4 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary-container flex items-center justify-center">
-                <span className="material-symbols-outlined text-on-primary text-[20px]">stadia_controller</span>
-              </div>
+            <div className="flex items-center gap-3">
+              <BrandLogo size="lg" />
               <span className="font-display-lg text-[22px] font-bold text-on-surface tracking-tight">NexusPay</span>
             </div>
             <p className="font-body-md text-[14px] text-on-surface-variant max-w-sm leading-relaxed">

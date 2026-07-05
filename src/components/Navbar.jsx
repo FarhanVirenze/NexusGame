@@ -1,6 +1,7 @@
 "use client"
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function Navbar() {
   const [user, setUser] = useState(null);
@@ -69,8 +70,8 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full z-[100] bg-surface/70 backdrop-blur-xl border-b border-white/40 shadow-sm shadow-primary/5 transition-all duration-300" id="topNav">
       <div className="flex justify-between items-center px-margin-mobile md:px-margin-desktop h-20 max-w-container-max mx-auto gap-4">
 
-        <a className="font-headline-md text-headline-md font-bold tracking-tighter text-primary shrink-0" href="/">
-          NexusPay
+        <a className="flex items-center shrink-0 hover:opacity-90 transition-opacity duration-200" href="/">
+          <BrandLogo size="md" />
         </a>
 
         <div className="hidden md:flex flex-1 max-w-md mx-4 relative group" ref={searchRef}>
