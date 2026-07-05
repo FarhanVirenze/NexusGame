@@ -1,160 +1,497 @@
-
-import React from 'react';
+"use client"
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import GameItemsModal from '@/components/admin/GameItemsModal';
 
 export default function GamesComponent() {
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Create/Edit Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('create');
+  const [formData, setFormData] = useState({ id: '', title: '', category: '', price: '', image_url: '' });
+  const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Delete Modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Manage Items Modal state
+  const [managingItemsForGame, setManagingItemsForGame] = useState(null);
+
+  // DataTable state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const perPage = 8;
+
+  const fetchGames = async () => {
+    try {
+      const res = await fetch('/api/admin/data?table=games');
+      if (!res.ok) throw new Error('Failed to fetch data');
+      const data = await res.json();
+      setGames(data || []);
+    } catch (err) {
+      console.error('Error fetching games:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGames();
+  }, []);
+
+  // Unique categories for filter dropdown
+  const categories = useMemo(() => {
+    const cats = [...new Set(games.map(g => g.category).filter(Boolean))];
+    return cats.sort();
+  }, [games]);
+
+  // Filtered + searched data
+  const filtered = useMemo(() => {
+    let result = [...games];
+
+    if (categoryFilter !== 'all') {
+      result = result.filter(g => g.category === categoryFilter);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(g =>
+        g.title?.toLowerCase().includes(q) ||
+        g.category?.toLowerCase().includes(q) ||
+        String(g.price).includes(q)
+      );
+    }
+
+    return result;
+  }, [games, searchQuery, categoryFilter]);
+
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, categoryFilter]);
+
+  const openCreateModal = () => {
+    setModalMode('create');
+    setFormData({ id: '', title: '', category: '', price: 0, image_url: '' });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (game) => {
+    setModalMode('edit');
+    setFormData({ 
+      id: game.id, 
+      title: game.title || '', 
+      category: game.category || '', 
+      price: game.price || 0, 
+      image_url: game.image_url || '' 
+    });
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const openDeleteModal = (game) => {
+    setItemToDelete(game);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      alert("You must be logged in to upload images");
+      setUploadingImage(false);
+      return;
+    }
+
+    const payload = new FormData();
+    payload.append('file', file);
+    payload.append('bucket', 'uploads');
+
+    try {
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        body: payload,
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setFormData({ ...formData, image_url: data.url });
+      } else {
+        alert(data.error || 'Failed to upload image');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const payload = {
+        title: formData.title,
+        category: formData.category,
+        price: parseFloat(formData.price) || 0,
+        image_url: formData.image_url
+      };
+
+      if (modalMode === 'create') {
+        const res = await fetch('/api/admin/crud', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table: 'games', data: payload })
+        });
+        if (!res.ok) throw new Error('Failed to create');
+      } else {
+        const res = await fetch('/api/admin/crud', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table: 'games', id: formData.id, data: payload })
+        });
+        if (!res.ok) throw new Error('Failed to update');
+      }
+
+      await fetchGames();
+      closeModal();
+    } catch (err) {
+      console.error('Error saving game:', err);
+      alert('Error saving game');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/crud?table=games&id=${itemToDelete.id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('Failed to delete');
+      await fetchGames();
+      closeDeleteModal();
+    } catch (err) {
+      console.error('Error deleting game:', err);
+      alert('Error deleting game');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
-      
+      <main className="flex-1 flex flex-col min-h-screen transition-all duration-300 bg-background relative overflow-y-auto">
+        <div className="p-6 md:p-margin-desktop max-w-container-max mx-auto w-full flex flex-col gap-8 pb-24 mt-4">
 
-<header className="md:hidden flex justify-between items-center w-full px-margin-mobile py-4 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm sticky top-0 z-50">
-<div className="font-display-lg text-headline-lg-mobile font-extrabold text-primary tracking-tight">NexusPay</div>
-<button className="text-on-surface-variant p-2 rounded-lg bg-surface-container-low border border-outline-variant/30 glass-panel">
-<span className="material-symbols-outlined" data-icon="menu">menu</span>
-</button>
-</header>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="font-headline-lg text-headline-lg text-on-surface">Game Management</h1>
+              <p className="font-body-md text-body-md text-on-surface-variant mt-1">Manage supported titles, denominations, and active status.</p>
+            </div>
+            <button 
+              onClick={openCreateModal}
+              className="bg-gradient-to-r from-primary to-primary-container text-white font-label-md text-label-md px-6 py-3 rounded-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all flex items-center justify-center gap-2 whitespace-nowrap self-start md:self-auto"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Add New Game
+            </button>
+          </div>
 
-<aside className="hidden md:flex flex-col w-64 bg-surface-container-lowest border-r border-outline-variant h-screen sticky top-0 z-40 shrink-0">
-<div className="p-margin-desktop pb-gutter flex items-center justify-center border-b border-outline-variant/50">
-<div className="font-display-lg text-headline-lg font-extrabold text-primary tracking-tight">NexusPay Admin</div>
-</div>
-<nav className="flex-1 py-gutter px-4 flex flex-col gap-2 overflow-y-auto">
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container font-label-md text-label-md" href="#">
-<span className="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
-                Dashboard
-            </a>
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary-container text-on-primary-container font-label-md text-label-md font-bold" href="#">
-<span className="material-symbols-outlined text-[20px] font-bold" data-icon="sports_esports">sports_esports</span>
-                Game Management
-            </a>
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container font-label-md text-label-md" href="#">
-<span className="material-symbols-outlined text-[20px]" data-icon="receipt_long">receipt_long</span>
-                Transactions
-            </a>
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container font-label-md text-label-md" href="#">
-<span className="material-symbols-outlined text-[20px]" data-icon="group">group</span>
-                Users
-            </a>
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container font-label-md text-label-md" href="#">
-<span className="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
-                Settings
-            </a>
-</nav>
-<div className="p-4 border-t border-outline-variant/50">
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg text-error hover:bg-error-container transition-colors font-label-md text-label-md" href="#">
-<span className="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
-                Logout
-            </a>
-</div>
-</aside>
+          {/* Search & Filter Bar */}
+          <div className="glass-panel rounded-xl p-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between border border-outline-variant/30">
+            <div className="relative flex-1 w-full sm:max-w-sm">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+              <input
+                type="text"
+                placeholder="Search games by title, category..."
+                className="w-full pl-10 pr-4 py-2.5 bg-surface-container border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface text-sm"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <select
+                className="bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2.5 text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+              >
+                <option value="all">All Categories</option>
+                {categories.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <div className="text-sm text-on-surface-variant whitespace-nowrap">
+                {filtered.length} game{filtered.length !== 1 && 's'}
+              </div>
+            </div>
+          </div>
 
-<main className="flex-1 flex flex-col min-w-0">
+          {/* Game Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+            {loading ? (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-on-surface-variant">
+                <span className="material-symbols-outlined animate-spin text-4xl mb-4">progress_activity</span>
+                <p>Loading games...</p>
+              </div>
+            ) : paginated.length === 0 ? (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-on-surface-variant">
+                <span className="material-symbols-outlined text-4xl mb-2">search_off</span>
+                <p>{searchQuery || categoryFilter !== 'all' ? 'No games match your filters.' : 'No games found in the database.'}</p>
+              </div>
+            ) : (
+              paginated.map((game) => (
+                <div key={game.id} className="glass-panel rounded-xl p-4 flex flex-col group relative overflow-hidden transition-all hover:shadow-[0_4px_24px_-4px_rgba(0,101,145,0.15)] hover:border-primary-container/50">
+                  <div className="relative h-40 rounded-lg overflow-hidden mb-4 bg-surface-variant">
+                    {game.image_url ? (
+                      <img src={game.image_url} alt={game.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-surface-container text-on-surface-variant">
+                        <span className="material-symbols-outlined text-4xl">sports_esports</span>
+                      </div>
+                    )}
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-surface-container-lowest/90 backdrop-blur rounded text-[10px] font-bold text-primary flex items-center gap-1 shadow-sm">
+                      <div className="w-2 h-2 rounded-full bg-secondary-container"></div> Active
+                    </div>
+                  </div>
+                  <div className="flex-1 flex flex-col">
+                    <h3 className="font-headline-md text-[18px] text-on-surface mb-1 truncate" title={game.title}>{game.title}</h3>
+                    <div className="flex items-center gap-2 text-on-surface-variant font-caption text-caption mb-4">
+                      <span className="material-symbols-outlined text-[14px]">category</span>
+                      <span className="capitalize">{game.category || 'Uncategorized'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-auto pt-4 border-t border-outline-variant/20">
+                    <button 
+                      onClick={() => setManagingItemsForGame(game)}
+                      className="py-2 px-3 rounded-lg bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary transition-colors font-label-md text-label-md flex items-center justify-center gap-1"
+                      title="Manage Denominations/Items"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">inventory_2</span>
+                      Items
+                    </button>
+                    <button 
+                      onClick={() => openEditModal(game)}
+                      className="flex-1 py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md text-center"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => openDeleteModal(game)}
+                      className="w-10 h-10 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-error hover:border-error-container transition-colors flex items-center justify-center"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
 
-<div className="hidden md:flex items-center justify-between px-margin-desktop py-6 border-b border-outline-variant/30 bg-surface-container-lowest sticky top-0 z-30">
-<h1 className="font-headline-md text-headline-md text-on-surface">Game Management</h1>
-<div className="flex items-center gap-4">
-<div className="relative">
-<span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant" data-icon="search">search</span>
-<input className="pl-10 pr-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none font-body-md text-body-md transition-shadow" placeholder="Search games..." type="text"/>
-</div>
-<div className="w-10 h-10 rounded-full bg-surface-variant border border-outline-variant/50 overflow-hidden flex items-center justify-center">
-<img className="w-full h-full object-cover" data-alt="A clean, modern avatar illustration of a user in a minimalist digital style. The avatar features a generic tech-savvy character profile set against a bright, solid electric blue background. High-quality vector-like illustration, crisp edges, bright light mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdl6Ix5Q0gGJtpR4GSUYqyxgQMpYmAhldPP1-XiHvtkgHFuUTqphW0seiNU1_hBINRbXyUMjiGqtbcWXolgzV069oGkZT0b6k_oVZDkE3Pv_ols1S2f1xSl87izg9Ot-qS1JTQC8yze1qda9r6_jXz_KkM2Npu-7vxGU2A7XGVwktFddGz_7dBVQyjPY6aejBq3PSKtJuhhU71k7U15gFnmNzPB51JfDCzkpZPPt4CXRCUAAG4vw14auX-105KuW644zl7JFuyakhl"/>
-</div>
-</div>
-</div>
-
-<div className="flex-1 p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full">
-
-<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-gutter">
-<div>
-<h2 className="font-headline-md text-headline-md text-on-surface md:hidden mb-1">Game Management</h2>
-<p className="font-body-md text-body-md text-on-surface-variant">Manage supported titles, denominations, and active status.</p>
-</div>
-<button className="btn-gradient text-on-primary font-label-md text-label-md px-6 py-3 rounded-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all flex items-center justify-center gap-2 whitespace-nowrap self-start md:self-auto">
-<span className="material-symbols-outlined text-[18px]" data-icon="add">add</span>
-                    Add New Game
+          {/* Pagination */}
+          {!loading && totalPages > 1 && (
+            <div className="glass-panel rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border border-outline-variant/30">
+              <div className="font-caption text-caption text-on-surface-variant">
+                Showing {Math.min((currentPage - 1) * perPage + 1, filtered.length)}–{Math.min(currentPage * perPage, filtered.length)} of {filtered.length} games
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(1)}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">first_page</span>
                 </button>
-</div>
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                </button>
 
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${i}`} className="w-9 h-9 flex items-center justify-center text-on-surface-variant text-sm">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(p)}
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium transition-colors ${
+                          currentPage === p
+                            ? 'bg-primary text-on-primary'
+                            : 'text-on-surface-variant hover:bg-surface-container'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
 
-<div className="glass-panel rounded-xl p-4 flex flex-col group relative overflow-hidden transition-all hover:shadow-[0_4px_24px_-4px_rgba(0,101,145,0.15)] hover:border-primary-container/50">
-<div className="relative h-40 rounded-lg overflow-hidden mb-4 bg-surface-variant">
-<img className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="A dynamic, high-quality banner for a competitive 5v5 mobile MOBA game. The image features vibrant fantasy characters engaged in an intense battle sequence with magical visual effects, glowing energy bursts, and pristine, colorful graphics. The setting is a magical arena. The aesthetic is bright, high-octane gaming suitable for a premium microtransaction platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTCmlVMeSiyMhS21ed45J50ChzhzTplJ8QKqthFsqQ45EvVHQ81EvArnsTg2FOvVD333JOK8ahq_rkLaaZkK3E5EGBtNGio6LFq2rRslpz08BG_DWePwcUgiu1qkTVJttKdWDdwCg1dBMNUTayah7Bb_1au4oWK7TxN8TnulbPH0UnSCLsunyvX34sWmxHuXjcM5-eukejJweUTwJo2k4Wwwagamwu3GZYOGuMwwqZKc4u3VYkD3TC1d1TCKfBkNPWgJ_PPY8kCEHC"/>
-<div className="absolute top-2 left-2 px-2 py-1 bg-surface-container-lowest/90 backdrop-blur rounded text-[10px] font-bold text-primary flex items-center gap-1 shadow-sm">
-<div className="w-2 h-2 rounded-full bg-secondary-container"></div> Active
-                        </div>
-</div>
-<div className="flex-1 flex flex-col">
-<h3 className="font-headline-md text-[18px] text-on-surface mb-1">Mobile Legends: Bang Bang</h3>
-<div className="flex items-center gap-2 text-on-surface-variant font-caption text-caption mb-4">
-<span className="material-symbols-outlined text-[14px]" data-icon="diamond">diamond</span>
-<span>24 Denominations</span>
-</div>
-</div>
-<div className="flex items-center gap-2 mt-auto pt-4 border-t border-outline-variant/20">
-<button className="flex-1 py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md text-center">Edit</button>
-<button className="w-10 h-10 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-error hover:border-error-container transition-colors flex items-center justify-center">
-<span className="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
-</button>
-</div>
-</div>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                </button>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">last_page</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
 
-<div className="glass-panel rounded-xl p-4 flex flex-col group relative overflow-hidden transition-all hover:shadow-[0_4px_24px_-4px_rgba(0,101,145,0.15)] hover:border-primary-container/50">
-<div className="relative h-40 rounded-lg overflow-hidden mb-4 bg-surface-variant">
-<img className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="A sleek, high-fidelity promotional image for a tactical, competitive first-person shooter game. The scene features modern, stylized agents wielding futuristic weapons in a clean, bright, near-future urban environment. Vivid contrasting colors of crimson red, stark white, and deep cyan. The aesthetic is esports-ready, premium, and intense." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2uPyJpEr43TavfQYDak2bxzKWuSjNwvJ98p-J04gOaGJVYTMy0cGgnIOYGgaVFUHCAUMMAfzTh4jA9yk1FFK5zdrbYSmjBoxE0_ESwX-scqoxAy8qaiPIqfKLCDoy-XFXXo1Tyv8DMb34-tRvOPpfDEgkvHLLkXvCnnch_qVf5GhnFjd9ZKe7P7ESRoD87SoL7HZvibe4XRM-XB4V5BKGkUDbhrMh4q9QyTw6ipr1aDep_MVMrx9T1ENe0mv8eE8ZuLScb-DOxhwi"/>
-<div className="absolute top-2 left-2 px-2 py-1 bg-surface-container-lowest/90 backdrop-blur rounded text-[10px] font-bold text-primary flex items-center gap-1 shadow-sm">
-<div className="w-2 h-2 rounded-full bg-secondary-container"></div> Active
-                        </div>
-</div>
-<div className="flex-1 flex flex-col">
-<h3 className="font-headline-md text-[18px] text-on-surface mb-1">Valorant</h3>
-<div className="flex items-center gap-2 text-on-surface-variant font-caption text-caption mb-4">
-<span className="material-symbols-outlined text-[14px]" data-icon="toll">toll</span>
-<span>12 Denominations</span>
-</div>
-</div>
-<div className="flex items-center gap-2 mt-auto pt-4 border-t border-outline-variant/20">
-<button className="flex-1 py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md text-center">Edit</button>
-<button className="w-10 h-10 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-error hover:border-error-container transition-colors flex items-center justify-center">
-<span className="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
-</button>
-</div>
-</div>
+      {/* CRUD Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-surface rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-outline-variant/30 flex justify-between items-center">
+              <h2 className="font-headline-md text-headline-md text-on-surface">
+                {modalMode === 'create' ? 'Add New Game' : 'Edit Game'}
+              </h2>
+              <button onClick={closeModal} className="text-on-surface-variant hover:text-error transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSave} className="p-6 flex flex-col gap-4">
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Title</label>
+                <input 
+                  type="text" required
+                  className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                  value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Category</label>
+                <input 
+                  type="text" required
+                  className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                  value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}
+                />
+              </div>
+              
+              {/* Image Upload Field */}
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Banner Image</label>
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                  <div 
+                    className="w-24 h-24 rounded-lg bg-surface-container border border-outline-variant flex items-center justify-center shrink-0 overflow-hidden group cursor-pointer relative"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {formData.image_url ? (
+                      <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="material-symbols-outlined text-on-surface-variant text-3xl">image</span>
+                    )}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="material-symbols-outlined text-white">upload</span>
+                    </div>
+                    {uploadingImage && (
+                      <div className="absolute inset-0 bg-surface-container/80 flex items-center justify-center backdrop-blur-sm">
+                        <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 w-full">
+                    <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handleImageUpload} />
+                    <div className="flex gap-2">
+                      <input 
+                        type="url" placeholder="Or paste image URL"
+                        className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                        value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})}
+                      />
+                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage}
+                        className="bg-surface-container-high text-on-surface px-4 py-2 rounded-lg border border-outline-variant hover:bg-surface-variant transition-colors flex items-center gap-2 disabled:opacity-50">
+                        <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-2">Upload a file or paste a direct URL (max 10MB).</p>
+                  </div>
+                </div>
+              </div>
 
-<div className="glass-panel rounded-xl p-4 flex flex-col group relative overflow-hidden transition-all hover:shadow-[0_4px_24px_-4px_rgba(0,101,145,0.15)] hover:border-primary-container/50">
-<div className="relative h-40 rounded-lg overflow-hidden mb-4 bg-surface-variant grayscale opacity-70">
-<img className="w-full h-full object-cover" data-alt="An expansive open-world fantasy adventure game banner. The scene features stunning anime-style cel-shaded graphics showing a vast, beautiful landscape with floating islands, glowing ruins, and clear blue skies. The lighting is ethereal and bright. High-quality digital art style, conveying exploration and magic in a light mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZmfJLdE7gAScL1lon2iResAsG2NpvSFvE3sWuaqT8xJV3LwMdeM6GKHK4Ik6Xe1dXutv2DpMRxp9EdJeV0xuB-9ENhtAZYaB2QX7fKr26B_KkIxjw45hrqlr6lw5qaI8-wzBBmhSMBWE1348P9ZKvArFu_w4adeCgA4K4DUNS5mH8RUAvAdHYmnoPxQKiFjafoUXoXe0k85z77og4CWIKX5d40GLGUqeUEFJyASvDG6SP_y709sjtwQYkyxI0B_Xbh3PnuryfhbuP"/>
-<div className="absolute top-2 left-2 px-2 py-1 bg-surface-container-lowest/90 backdrop-blur rounded text-[10px] font-bold text-outline flex items-center gap-1 shadow-sm">
-<div className="w-2 h-2 rounded-full bg-outline"></div> Inactive
-                        </div>
-</div>
-<div className="flex-1 flex flex-col">
-<h3 className="font-headline-md text-[18px] text-on-surface mb-1">Genshin Impact</h3>
-<div className="flex items-center gap-2 text-on-surface-variant font-caption text-caption mb-4">
-<span className="material-symbols-outlined text-[14px]" data-icon="generating_tokens">generating_tokens</span>
-<span>18 Denominations</span>
-</div>
-</div>
-<div className="flex items-center gap-2 mt-auto pt-4 border-t border-outline-variant/20">
-<button className="flex-1 py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md text-center">Edit</button>
-<button className="w-10 h-10 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-error hover:border-error-container transition-colors flex items-center justify-center">
-<span className="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
-</button>
-</div>
-</div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button type="button" onClick={closeModal} className="px-5 py-2.5 rounded-lg border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors">Cancel</button>
+                <button type="submit" disabled={saving || uploadingImage} className="px-5 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50">
+                  {saving && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
+                  Save Game
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-<div className="glass-panel rounded-xl p-4 flex flex-col group relative overflow-hidden transition-all hover:shadow-[0_4px_24px_-4px_rgba(0,101,145,0.15)] hover:border-primary-container/50">
-<div className="relative h-40 rounded-lg overflow-hidden mb-4 bg-surface-variant flex items-center justify-center border-2 border-dashed border-outline-variant/50 cursor-pointer hover:border-primary transition-colors group">
-<div className="flex flex-col items-center text-outline-variant group-hover:text-primary transition-colors">
-<span className="material-symbols-outlined text-[32px] mb-2" data-icon="add_circle">add_circle</span>
-<span className="font-label-md text-label-md">Add New Game</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-</main>
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-surface rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-error/10 text-error flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-3xl">delete_forever</span>
+              </div>
+              <h3 className="font-headline-md text-headline-md text-on-surface mb-2">Delete Game</h3>
+              <p className="font-body-md text-body-md text-on-surface-variant mb-6">
+                Are you sure you want to delete <span className="font-semibold text-on-surface">{itemToDelete?.title}</span>? This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button onClick={closeDeleteModal} disabled={deleting} className="px-6 py-2.5 rounded-lg border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors">Cancel</button>
+                <button onClick={confirmDelete} disabled={deleting} className="px-6 py-2.5 rounded-lg bg-error text-white hover:bg-error/90 transition-colors flex items-center gap-2">
+                  {deleting && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Game Items Management Modal */}
+      {managingItemsForGame && (
+        <GameItemsModal 
+          game={managingItemsForGame} 
+          onClose={() => setManagingItemsForGame(null)} 
+        />
+      )}
     </>
   );
 }

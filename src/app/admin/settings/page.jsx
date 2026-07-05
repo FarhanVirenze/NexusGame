@@ -1,173 +1,288 @@
+"use client"
+import React, { useEffect, useState, useRef } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
-import React from 'react';
+export default function AdminSettingsPage() {
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const fileInputRef = useRef(null);
 
-export default function SettingsComponent() {
+  // Form states
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState(null);
+
+  // Password states
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  useEffect(() => {
+    async function loadProfile() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      try {
+        const res = await fetch('/api/check-role', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` },
+        });
+        const data = await res.json();
+        if (data.profile) {
+          setProfile(data.profile);
+          setFirstName(data.profile.first_name || '');
+          setLastName(data.profile.last_name || '');
+          setPhone(data.profile.phone || '');
+          setEmail(data.profile.email || '');
+          setAvatarUrl(data.profile.avatar_url || null);
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProfile();
+  }, []);
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setMessage({ type: '', text: '' });
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      const res = await fetch('/api/profile/avatar', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setAvatarUrl(data.avatar_url);
+        setMessage({ type: 'success', text: 'Foto profil berhasil diperbarui!' });
+        window.dispatchEvent(new Event('profileUpdated'));
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Gagal upload foto.' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Gagal upload foto.' });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    setMessage({ type: '', text: '' });
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
+          phone: phone,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
+        window.dispatchEvent(new Event('profileUpdated'));
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Gagal menyimpan perubahan.' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Gagal menyimpan perubahan.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    setMessage({ type: '', text: '' });
+    if (newPassword !== confirmNewPassword) {
+      setMessage({ type: 'error', text: 'Password baru tidak cocok.' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setMessage({ type: 'error', text: 'Password minimal 6 karakter.' });
+      return;
+    }
+
+    setUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      setMessage({ type: 'error', text: 'Gagal mengubah password: ' + error.message });
+    } else {
+      setMessage({ type: 'success', text: 'Password berhasil diperbarui!' });
+      setNewPassword('');
+      setConfirmNewPassword('');
+    }
+    setUpdatingPassword(false);
+  };
+
+  const displayName = firstName && lastName ? `${firstName} ${lastName}` : email?.split('@')[0] || 'Admin';
+
+  if (loading) {
+    return (
+      <main className="flex-1 flex flex-col min-h-screen bg-background">
+        <div className="flex justify-center items-center min-h-[60vh]">
+          <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <>
-      
+    <main className="flex-1 flex flex-col min-h-screen transition-all duration-300 bg-background relative overflow-y-auto">
+      <div className="p-6 md:p-margin-desktop max-w-3xl mx-auto w-full flex flex-col gap-8 pb-24 mt-4">
 
-<nav className="bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm docked full-width top-0 z-50 fixed w-full h-20">
-<div className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto h-full">
-<div className="flex items-center gap-gutter">
-<a className="font-display-lg text-display-lg font-extrabold text-primary dark:text-inverse-primary tracking-tight" href="#" >NexusPay</a>
-</div>
-<div className="hidden md:flex items-center gap-6">
+        <div>
+          <h1 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">Account Settings</h1>
+          <p className="font-body-md text-body-md text-on-surface-variant">Manage your admin profile and security.</p>
+        </div>
 
-<a className="text-on-surface-variant font-medium font-label-md text-label-md hover:text-primary transition-all duration-200" href="#">Dashboard</a>
-<a className="text-on-surface-variant font-medium font-label-md text-label-md hover:text-primary transition-all duration-200" href="#">Users</a>
-<a className="text-on-surface-variant font-medium font-label-md text-label-md hover:text-primary transition-all duration-200" href="#">Transactions</a>
-<a className="text-primary font-bold border-b-2 border-primary pb-1 font-label-md text-label-md" href="#">Settings</a>
-</div>
-<div className="flex items-center gap-4">
-<button className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-all duration-200">Admin Sign Out</button>
-</div>
-</div>
-</nav>
+        {/* Status Message */}
+        {message.text && (
+          <div className={`p-4 rounded-lg font-body-sm text-sm ${message.type === 'error' ? 'bg-error/10 border border-error/20 text-error' : 'bg-primary/10 border border-primary/20 text-primary'}`}>
+            {message.text}
+          </div>
+        )}
 
-<main className="flex-grow pt-28 pb-16 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-gutter">
-
-<aside className="hidden lg:block lg:col-span-3">
-<div className="glass-panel rounded-xl p-6 sticky top-28">
-<h3 className="font-headline-md text-headline-md mb-6 text-on-surface">Configuration</h3>
-<nav className="flex flex-col gap-2">
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg bg-surface-container-high text-primary font-bold transition-colors" href="#">
-<span className="material-symbols-outlined" >settings</span>
-<span className="font-label-md text-label-md">General Settings</span>
-</a>
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary transition-colors" href="#">
-<span className="material-symbols-outlined">key</span>
-<span className="font-label-md text-label-md">API Keys</span>
-</a>
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary transition-colors" href="#">
-<span className="material-symbols-outlined">shield_person</span>
-<span className="font-label-md text-label-md">Security</span>
-</a>
-<a className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary transition-colors" href="#">
-<span className="material-symbols-outlined">mail</span>
-<span className="font-label-md text-label-md">Email Templates</span>
-</a>
-</nav>
-</div>
-</aside>
-
-<section className="col-span-1 lg:col-span-9 flex flex-col gap-8">
-
-<div>
-<h1 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">Platform Settings</h1>
-<p className="font-body-md text-body-md text-on-surface-variant">Manage global variables and operational modes for NexusPay.</p>
-</div>
-
-<form className="flex flex-col gap-8">
-
-<div className="glass-panel rounded-xl p-6 md:p-8">
-<h2 className="font-headline-md text-headline-md mb-6 flex items-center gap-2">
-<span className="material-symbols-outlined text-primary">build_circle</span>
-                        Operational Mode
-                    </h2>
-<div className="flex items-center justify-between p-4 bg-surface-container rounded-lg border border-outline-variant/30">
-<div>
-<p className="font-label-md text-label-md text-on-surface mb-1">Maintenance Mode</p>
-<p className="font-caption text-caption text-on-surface-variant">Disables public API access and shows a holding page. Internal Admin access remains active.</p>
-</div>
-
-<div className="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
-<input className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-all right-6 border-surface-variant" id="maintenance_toggle" name="toggle" type="checkbox"/>
-<label className="toggle-label block overflow-hidden h-6 rounded-full bg-surface-variant cursor-pointer transition-colors" htmlFor="maintenance_toggle"></label>
-</div>
-</div>
-</div>
-
-<div className="glass-panel rounded-xl p-6 md:p-8">
-<h2 className="font-headline-md text-headline-md mb-6 flex items-center gap-2">
-<span className="material-symbols-outlined text-primary">api</span>
-                        Payment Gateway Integration
-                    </h2>
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-<div className="flex flex-col gap-2">
-<label className="font-label-md text-label-md text-on-surface">Primary Gateway Secret Key</label>
-<div className="relative flex items-center input-glow rounded-lg border border-slate-200 bg-slate-50 transition-all overflow-hidden">
-<span className="material-symbols-outlined pl-3 text-outline">key</span>
-<input className="w-full bg-transparent border-none focus:ring-0 font-body-md text-body-md text-on-surface py-3 px-3" placeholder="sk_live_..." type="password" value="sk_live_1234567890abcdef"/>
-</div>
-</div>
-<div className="flex flex-col gap-2">
-<label className="font-label-md text-label-md text-on-surface">Webhook Signing Secret</label>
-<div className="relative flex items-center input-glow rounded-lg border border-slate-200 bg-slate-50 transition-all overflow-hidden">
-<span className="material-symbols-outlined pl-3 text-outline">lock</span>
-<input className="w-full bg-transparent border-none focus:ring-0 font-body-md text-body-md text-on-surface py-3 px-3" placeholder="whsec_..." type="password" value="whsec_0987654321fedcba"/>
-</div>
-</div>
-</div>
-</div>
-
-<div className="glass-panel rounded-xl p-6 md:p-8">
-<h2 className="font-headline-md text-headline-md mb-6 flex items-center gap-2">
-<span className="material-symbols-outlined text-primary">contact_support</span>
-                        Support Configuration
-                    </h2>
-<div className="flex flex-col gap-6">
-<div className="flex flex-col gap-2 w-full md:w-1/2">
-<label className="font-label-md text-label-md text-on-surface">Global Support Email</label>
-<div className="relative flex items-center input-glow rounded-lg border border-slate-200 bg-slate-50 transition-all overflow-hidden">
-<span className="material-symbols-outlined pl-3 text-outline">mail</span>
-<input className="w-full bg-transparent border-none focus:ring-0 font-body-md text-body-md text-on-surface py-3 px-3" type="email" value="support@nexuspay.gg"/>
-</div>
-</div>
-</div>
-</div>
-
-<div className="glass-panel rounded-xl p-6 md:p-8 relative overflow-hidden">
-
-<div className="absolute -right-20 -top-20 w-64 h-64 bg-primary-fixed rounded-full blur-3xl opacity-30 pointer-events-none"></div>
-<h2 className="font-headline-md text-headline-md mb-6 flex items-center gap-2 relative z-10">
-<span className="material-symbols-outlined text-primary">admin_panel_settings</span>
-                        Admin Security Profile
-                    </h2>
-<div className="flex flex-col gap-6 relative z-10">
-<div className="flex items-center gap-4 p-4 rounded-lg bg-surface border border-outline-variant/30">
-<div className="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-headline-md">
-                                A
-                            </div>
-<div>
-<p className="font-label-md text-label-md text-on-surface">Admin Session Timeout</p>
-<p className="font-caption text-caption text-on-surface-variant">Automatically log out after inactivity.</p>
-</div>
-<div className="ml-auto">
-<select className="bg-slate-50 border border-slate-200 text-on-surface font-body-md rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5">
-<option>15 Minutes</option>
-<option selected="">30 Minutes</option>
-<option>1 Hour</option>
-</select>
-</div>
-</div>
-<div className="flex justify-end gap-4 mt-4">
-<button className="px-6 py-3 rounded-lg bg-white border border-outline-variant font-label-md text-label-md text-on-surface hover:bg-surface transition-colors shadow-sm" type="button">Cancel</button>
-
-<button className="px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-container text-on-primary font-label-md text-label-md shadow-md hover:scale-[1.02] transition-transform shadow-primary/20 hover:shadow-primary/40" type="submit">Save Configuration</button>
-</div>
-</div>
-</div>
-</form>
-</section>
-</main>
-
-<footer className="bg-surface-container-low dark:bg-inverse-surface border-t border-outline-variant mt-auto">
-<div className="flex flex-col md:flex-row justify-between items-center w-full px-margin-desktop py-12 max-w-container-max mx-auto gap-gutter">
-<div className="font-headline-md text-headline-md font-bold text-on-surface dark:text-inverse-on-surface">NexusPay</div>
-<div className="flex flex-wrap justify-center gap-6">
-<a className="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Terms of Service</a>
-<a className="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Privacy Policy</a>
-<a className="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Refund Policy</a>
-<a className="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Contact Support</a>
-<a className="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">About Us</a>
-<a className="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Partners</a>
-</div>
-<div className="font-caption text-caption text-on-surface-variant text-center md:text-right">
-                © 2024 NexusPay. All rights reserved. High-performance gaming transactions.
+        {/* Profile Header with Avatar */}
+        <section className="glass-card rounded-xl p-8 shadow-sm flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+          <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary-fixed rounded-full blur-3xl opacity-30 pointer-events-none"></div>
+          <div 
+            className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-md flex-shrink-0 relative group cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {avatarUrl ? (
+              <img className="w-full h-full object-cover" alt="Profile avatar" src={avatarUrl} referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-full h-full bg-surface-variant flex items-center justify-center">
+                <span className="material-symbols-outlined text-5xl text-primary">person</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              {uploadingAvatar ? (
+                <span className="material-symbols-outlined text-white animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-white">photo_camera</span>
+              )}
             </div>
-</div>
-</footer>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
+          </div>
+          <div className="flex-grow text-center md:text-left">
+            <h2 className="font-headline-md text-headline-md text-on-surface">{displayName}</h2>
+            <p className="font-body-md text-body-md text-outline mt-1">{email}</p>
+            <div className="mt-3">
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary font-label-md text-label-sm gap-1">
+                <span className="material-symbols-outlined text-[16px]">shield</span>
+                Administrator
+              </span>
+            </div>
+          </div>
+        </section>
 
-    </>
+        {/* Personal Details Form */}
+        <section className="glass-card rounded-xl p-8 shadow-sm">
+          <h3 className="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">person</span> Personal Details
+          </h3>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-2">Nama Depan</label>
+                <input className="form-input-styled" placeholder="Masukkan nama depan" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+              </div>
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-2">Nama Belakang</label>
+                <input className="form-input-styled" placeholder="Masukkan nama belakang" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-2">Email Address</label>
+                <input className="form-input-styled bg-surface-variant/30 cursor-not-allowed" type="email" value={email} readOnly />
+              </div>
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-2">Nomor WhatsApp</label>
+                <input className="form-input-styled" placeholder="Masukkan nomor WhatsApp" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button 
+                className="bg-gradient-to-r from-primary to-primary-container text-white px-6 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 disabled:opacity-70 flex items-center gap-2" 
+                type="button"
+                disabled={saving}
+                onClick={handleSaveProfile}
+              >
+                {saving ? <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span> : null}
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Security / Change Password */}
+        <section className="glass-card rounded-xl p-8 shadow-sm">
+          <h3 className="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+            <span className="material-symbols-outlined text-on-surface">lock</span> Security
+          </h3>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-2">New Password</label>
+                <input className="form-input-styled" placeholder="••••••••" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+              </div>
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-2">Confirm New Password</label>
+                <input className="form-input-styled" placeholder="••••••••" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button 
+                className="bg-surface-container-high text-on-surface border border-outline-variant px-6 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-variant transition-colors duration-200 disabled:opacity-70 flex items-center gap-2" 
+                type="button"
+                disabled={updatingPassword}
+                onClick={handleUpdatePassword}
+              >
+                {updatingPassword ? <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span> : null}
+                Update Password
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
   );
 }

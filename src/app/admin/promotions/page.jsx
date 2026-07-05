@@ -2,14 +2,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function ContentComponent() {
-  const [news, setNews] = useState([]);
+export default function PromotionsComponent() {
+  const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Create/Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
-  const [formData, setFormData] = useState({ id: '', title: '', body: '', type: 'news', image_url: '' });
+  const [formData, setFormData] = useState({ id: '', title: '', description: '', image_url: '', valid_until: '' });
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
@@ -19,26 +19,26 @@ export default function ContentComponent() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchNews = async () => {
+  const fetchPromotions = async () => {
     try {
-      const res = await fetch('/api/admin/data?table=content');
+      const res = await fetch('/api/admin/data?table=promotions');
       if (!res.ok) throw new Error('Failed to fetch data');
       const data = await res.json();
-      setNews(data || []);
+      setPromotions(data || []);
     } catch (err) {
-      console.error('Error fetching news:', err);
+      console.error('Error fetching promotions:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchNews();
+    fetchPromotions();
   }, []);
 
   const openCreateModal = () => {
     setModalMode('create');
-    setFormData({ id: '', title: '', body: '', type: 'news', image_url: '' });
+    setFormData({ id: '', title: '', description: '', image_url: '', valid_until: '' });
     setIsModalOpen(true);
   };
 
@@ -47,9 +47,9 @@ export default function ContentComponent() {
     setFormData({ 
       id: item.id, 
       title: item.title || '', 
-      body: item.body || '', 
-      type: item.type || 'news', 
-      image_url: item.image_url || '' 
+      description: item.description || '', 
+      image_url: item.image_url || '', 
+      valid_until: item.valid_until ? new Date(item.valid_until).toISOString().split('T')[0] : '' 
     });
     setIsModalOpen(true);
   };
@@ -112,32 +112,32 @@ export default function ContentComponent() {
     try {
       const payload = {
         title: formData.title,
-        body: formData.body,
-        type: formData.type,
-        image_url: formData.image_url
+        description: formData.description,
+        image_url: formData.image_url,
+        valid_until: formData.valid_until ? new Date(formData.valid_until).toISOString() : null
       };
 
       if (modalMode === 'create') {
         const res = await fetch('/api/admin/crud', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ table: 'content', data: payload })
+          body: JSON.stringify({ table: 'promotions', data: payload })
         });
         if (!res.ok) throw new Error('Failed to create');
       } else {
         const res = await fetch('/api/admin/crud', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ table: 'content', id: formData.id, data: payload })
+          body: JSON.stringify({ table: 'promotions', id: formData.id, data: payload })
         });
         if (!res.ok) throw new Error('Failed to update');
       }
 
-      await fetchNews();
+      await fetchPromotions();
       closeModal();
     } catch (err) {
-      console.error('Error saving news:', err);
-      alert('Error saving news');
+      console.error('Error saving promotion:', err);
+      alert('Error saving promotion');
     } finally {
       setSaving(false);
     }
@@ -147,15 +147,15 @@ export default function ContentComponent() {
     if (!itemToDelete) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/crud?table=content&id=${itemToDelete.id}`, {
+      const res = await fetch(`/api/admin/crud?table=promotions&id=${itemToDelete.id}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to delete');
-      await fetchNews();
+      await fetchPromotions();
       closeDeleteModal();
     } catch (err) {
-      console.error('Error deleting news:', err);
-      alert('Error deleting news');
+      console.error('Error deleting promotion:', err);
+      alert('Error deleting promotion');
     } finally {
       setDeleting(false);
     }
@@ -165,86 +165,74 @@ export default function ContentComponent() {
     <>
       <main className="flex-1 flex flex-col min-h-screen transition-all duration-300 bg-background relative overflow-y-auto">
         <div className="p-6 md:p-margin-desktop max-w-container-max mx-auto w-full flex flex-col gap-8 pb-24 mt-4">
+
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
             <div>
-              <h1 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">News Management</h1>
-              <p className="font-body-md text-body-md text-on-surface-variant mt-1">Manage platform news articles and system updates.</p>
+              <h1 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Manage Promotions</h1>
+              <p className="font-body-md text-body-md text-on-surface-variant mt-1">Manage platform banners, discounts, and active promotions.</p>
             </div>
             <button 
               onClick={openCreateModal}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-lg font-label-md text-label-md shadow-sm hover:scale-105 transition-transform flex-shrink-0"
             >
-              <span className="material-symbols-outlined">add</span>
-              Create News
+              <span className="material-symbols-outlined">campaign</span>
+              Create Promo
             </button>
           </div>
 
-          <div className="flex flex-col gap-6">
-            <section>
-              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Latest Articles</h2>
-              <div className="grid grid-cols-1 gap-6">
-                
-                {loading ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant">
-                    <span className="material-symbols-outlined animate-spin text-4xl mb-4">progress_activity</span>
-                    <p>Loading news...</p>
-                  </div>
-                ) : news.length === 0 ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant">
-                    <p>No news articles found in the database.</p>
-                  </div>
-                ) : (
-                  news.map((item) => (
-                    <div key={item.id} className="glass-panel rounded-xl overflow-hidden flex flex-col md:flex-row group relative p-4 gap-6 hover:shadow-md transition-shadow">
-                      <div className="h-48 md:w-64 md:h-auto bg-surface-container relative shrink-0 overflow-hidden rounded-lg">
-                        {item.image_url ? (
-                          <div 
-                            className="bg-cover bg-center w-full h-full absolute inset-0 opacity-90 group-hover:scale-105 transition-transform duration-500" 
-                            style={{ backgroundImage: `url(${item.image_url})` }}
-                          ></div>
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-surface-variant text-on-surface-variant">
-                            <span className="material-symbols-outlined text-4xl">article</span>
-                          </div>
-                        )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {loading ? (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-on-surface-variant">
+                <span className="material-symbols-outlined animate-spin text-4xl mb-4">progress_activity</span>
+                <p>Loading promotions...</p>
+              </div>
+            ) : promotions.length === 0 ? (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-on-surface-variant">
+                <p>No active promotions found in the database.</p>
+              </div>
+            ) : (
+              promotions.map((promo) => (
+                <div key={promo.id} className="glass-panel rounded-xl overflow-hidden group relative flex flex-col h-full hover:shadow-md transition-shadow">
+                  <div className="h-48 bg-surface-container relative">
+                    {promo.image_url ? (
+                      <img src={promo.image_url} alt={promo.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
+                        <span className="material-symbols-outlined text-4xl">image</span>
                       </div>
-                      <div className="flex-1 flex flex-col">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${item.type === 'news' ? 'bg-primary-container text-on-primary-container' : 'bg-tertiary-container text-on-tertiary-container'}`}>
-                            {item.type === 'news' ? 'News' : 'System Update'}
-                          </span>
-                          <span className="font-caption text-caption text-on-surface-variant">
-                            {new Date(item.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <h3 className="font-headline-md text-headline-md text-on-surface mb-2">{item.title}</h3>
-                        <p className="font-body-md text-body-md text-on-surface-variant line-clamp-3 mb-6">
-                          {item.body}
-                        </p>
-                        
-                        <div className="mt-auto flex gap-3 pt-4 border-t border-outline-variant/30">
-                          <button 
-                            onClick={() => openEditModal(item)}
-                            className="flex items-center gap-2 text-primary font-label-md text-label-md hover:underline"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                            Edit
-                          </button>
-                          <button 
-                            onClick={() => openDeleteModal(item)}
-                            className="flex items-center gap-2 text-error font-label-md text-label-md hover:underline"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">delete</span>
-                            Delete
-                          </button>
-                        </div>
+                    )}
+                    <div className="absolute top-4 left-4 bg-error text-white font-label-md text-label-md px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px]">local_offer</span> PROMO
+                    </div>
+                  </div>
+                  <div className="p-6 flex-1 flex flex-col">
+                    <h3 className="font-headline-md text-[20px] text-on-surface mb-2">{promo.title}</h3>
+                    <p className="font-body-md text-body-md text-on-surface-variant line-clamp-2 mb-4">
+                      {promo.description}
+                    </p>
+                    <div className="mt-auto flex items-center justify-between border-t border-outline-variant/30 pt-4">
+                      <div className="font-caption text-caption font-semibold text-primary">
+                        Valid until: {promo.valid_until ? new Date(promo.valid_until).toLocaleDateString() : 'No expiry'}
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => openEditModal(promo)}
+                          className="p-2 text-on-surface hover:text-primary transition-colors bg-surface-container rounded-lg"
+                        >
+                          <span className="material-symbols-outlined">edit</span>
+                        </button>
+                        <button 
+                          onClick={() => openDeleteModal(promo)}
+                          className="p-2 text-on-surface hover:text-error transition-colors bg-surface-container rounded-lg"
+                        >
+                          <span className="material-symbols-outlined">delete</span>
+                        </button>
                       </div>
                     </div>
-                  ))
-                )}
-
-              </div>
-            </section>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </main>
@@ -255,7 +243,7 @@ export default function ContentComponent() {
           <div className="bg-surface rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
             <div className="px-6 py-4 border-b border-outline-variant/30 flex justify-between items-center sticky top-0 bg-surface z-10">
               <h2 className="font-headline-md text-headline-md text-on-surface">
-                {modalMode === 'create' ? 'Create News Article' : 'Edit News Article'}
+                {modalMode === 'create' ? 'Create Promotion Banner' : 'Edit Promotion Banner'}
               </h2>
               <button onClick={closeModal} className="text-on-surface-variant hover:text-error transition-colors">
                 <span className="material-symbols-outlined">close</span>
@@ -264,33 +252,29 @@ export default function ContentComponent() {
             
             <form onSubmit={handleSave} className="p-6 flex flex-col gap-4">
               <div>
-                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Title</label>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Promo Title</label>
                 <input 
                   type="text" required
                   className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
                   value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Type</label>
-                  <select 
-                    className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
-                    value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}
-                  >
-                    <option value="news">News</option>
-                    <option value="update">System Update</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Valid Until</label>
+                <input 
+                  type="date" 
+                  className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface [color-scheme:dark]"
+                  value={formData.valid_until} onChange={e => setFormData({...formData, valid_until: e.target.value})}
+                />
               </div>
-              
+
               {/* Image Upload Field */}
               <div>
-                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Cover Image</label>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Banner Image</label>
                 
                 <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                   <div 
-                    className="w-24 h-24 rounded-lg bg-surface-container border border-outline-variant flex items-center justify-center shrink-0 overflow-hidden group cursor-pointer relative"
+                    className="w-32 h-24 rounded-lg bg-surface-container border border-outline-variant flex items-center justify-center shrink-0 overflow-hidden group cursor-pointer relative"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     {formData.image_url ? (
@@ -341,11 +325,11 @@ export default function ContentComponent() {
               </div>
 
               <div>
-                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Content Body</label>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Description</label>
                 <textarea 
-                  required rows="8"
+                  rows="3"
                   className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface resize-none"
-                  value={formData.body} onChange={e => setFormData({...formData, body: e.target.value})}
+                  value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}
                 ></textarea>
               </div>
 
@@ -355,7 +339,7 @@ export default function ContentComponent() {
                 </button>
                 <button type="submit" disabled={saving || uploadingImage} className="px-5 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50">
                   {saving && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
-                  Save Article
+                  Save Promo
                 </button>
               </div>
             </form>
@@ -371,7 +355,7 @@ export default function ContentComponent() {
               <div className="w-16 h-16 rounded-full bg-error/10 text-error flex items-center justify-center mx-auto mb-4">
                 <span className="material-symbols-outlined text-3xl">delete_forever</span>
               </div>
-              <h3 className="font-headline-md text-headline-md text-on-surface mb-2">Delete Article</h3>
+              <h3 className="font-headline-md text-headline-md text-on-surface mb-2">Delete Promotion</h3>
               <p className="font-body-md text-body-md text-on-surface-variant mb-6">
                 Are you sure you want to delete <span className="font-semibold text-on-surface">{itemToDelete?.title}</span>? This action cannot be undone.
               </p>

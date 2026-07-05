@@ -21,10 +21,27 @@ export default function LoginPage() {
 
     if (error) {
       setError(error.message);
+      setLoading(false);
     } else {
-      window.location.href = '/';
+      // Check user role via server-side API (bypasses RLS)
+      try {
+        const res = await fetch('/api/check-role', {
+          headers: {
+            'Authorization': `Bearer ${data.session.access_token}`,
+          },
+        });
+        const roleData = await res.json();
+
+        if (roleData.role === 'admin') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/';
+        }
+      } catch (err) {
+        // Fallback to home if role check fails
+        window.location.href = '/';
+      }
     }
-    setLoading(false);
   };
 
   const handleGoogleLogin = async () => {

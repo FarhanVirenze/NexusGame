@@ -1,120 +1,306 @@
-
-import React from 'react';
+"use client"
+import React, { useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function HistoryComponent() {
+  const [txList, setTxList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  useEffect(() => {
+    async function loadHistory() {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        window.location.href = '/login';
+        return;
+      }
+
+      const res = await fetch(`/api/transactions?user_id=${session.user.id}`);
+      const result = await res.json();
+
+      if (res.ok && result.data) {
+        let transactions = result.data;
+
+        // Sync pending transactions with Xendit to get real status
+        const pendingTxs = transactions.filter(tx => tx.status === 'pending');
+        if (pendingTxs.length > 0) {
+          const syncPromises = pendingTxs.map(async (tx) => {
+            try {
+              const statusRes = await fetch(`/api/xendit/status?id=${tx.id}`);
+              const statusData = await statusRes.json();
+              if (statusRes.ok && statusData.status) {
+                return { id: tx.id, newStatus: statusData.status, invoiceUrl: statusData.invoice_url };
+              }
+            } catch (e) {
+              // Ignore sync errors for individual transactions
+            }
+            return null;
+          });
+          
+          const syncResults = await Promise.all(syncPromises);
+          syncResults.forEach(result => {
+            if (result) {
+              const tx = transactions.find(t => t.id === result.id);
+              if (tx) {
+                tx.status = result.newStatus;
+                tx._invoiceUrl = result.invoiceUrl;
+              }
+            }
+          });
+        }
+
+        setTxList(transactions);
+      }
+
+      setLoading(false);
+    }
+    loadHistory();
+  }, []);
+
+  const filteredTx = txList.filter(tx => {
+    const matchesSearch = searchQuery === '' || 
+      (tx.games?.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tx.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || tx.status === filterStatus;
+    return matchesSearch && matchesFilter;
+  });
+
+  const stats = {
+    total: txList.length,
+    completed: txList.filter(t => t.status === 'completed').length,
+    pending: txList.filter(t => t.status === 'pending').length,
+    totalSpent: txList.filter(t => t.status === 'completed').reduce((sum, t) => sum + Number(t.amount), 0),
+  };
+
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-12 flex flex-col justify-center items-center h-[60vh] mt-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p className="font-body-md text-body-md text-on-surface-variant">Memuat riwayat pesanan...</p>
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
-      
 
 <Navbar />
-<main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-12">
-<div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-<div>
-<h1 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">Riwayat Pesanan</h1>
-<p className="font-body-md text-body-md text-on-surface-variant">Kelola dan pantau semua transaksi top-up game Anda.</p>
-</div>
-<div className="flex gap-2">
-<button className="glass-panel px-4 py-2 rounded-lg flex items-center gap-2 font-label-md text-label-md text-on-surface hover:bg-surface-container-high transition-colors">
-<span className="material-symbols-outlined text-[18px]">filter_list</span>
-                    Filter
-                </button>
-<div className="relative">
-<input className="bg-surface-container-lowest border border-outline-variant rounded-lg pl-10 pr-4 py-2 font-body-md text-body-md focus:border-primary focus:ring-2 focus:ring-primary/20 w-full md:w-64" placeholder="Cari pesanan..." type="text" />
-<span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-[18px]">search</span>
-</div>
-</div>
-</div>
+<main className="flex-grow w-full mt-20">
 
-<div className="glass-panel rounded-xl overflow-hidden">
+{/* Hero */}
+<section className="relative w-full overflow-hidden bg-gradient-to-br from-surface via-surface to-primary/5 py-12 md:py-16">
+  <div className="absolute inset-0 pointer-events-none">
+    <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4"></div>
+  </div>
+  <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop relative z-10">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
+      <div>
+        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full w-fit border border-primary/20 mb-4">
+          <span className="material-symbols-outlined text-sm">receipt_long</span>
+          <span className="font-label-md text-label-md">Riwayat Transaksi</span>
+        </div>
+        <h1 className="font-display-lg text-headline-lg-mobile md:text-display-lg text-on-surface mb-2">Riwayat Pesanan</h1>
+        <p className="font-body-lg text-body-lg text-on-surface-variant">Kelola dan pantau semua transaksi top-up game Anda.</p>
+      </div>
+    </div>
 
-<div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-outline-variant bg-surface/50 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-<div className="col-span-4">Game &amp; Detail</div>
-<div className="col-span-2">Nominal</div>
-<div className="col-span-2">Tanggal</div>
-<div className="col-span-2">Status</div>
-<div className="col-span-2 text-right">Aksi</div>
-</div>
+    {/* Stats Cards */}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="bg-surface-container-lowest rounded-xl p-4 border border-outline-variant/20">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+            <span className="material-symbols-outlined text-primary text-[18px]">receipt</span>
+          </div>
+          <span className="font-caption text-caption text-on-surface-variant">Total Pesanan</span>
+        </div>
+        <span className="font-headline-md text-headline-md text-on-surface">{stats.total}</span>
+      </div>
+      <div className="bg-surface-container-lowest rounded-xl p-4 border border-outline-variant/20">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 rounded-lg bg-tertiary/10 flex items-center justify-center">
+            <span className="material-symbols-outlined text-tertiary text-[18px]">check_circle</span>
+          </div>
+          <span className="font-caption text-caption text-on-surface-variant">Berhasil</span>
+        </div>
+        <span className="font-headline-md text-headline-md text-on-surface">{stats.completed}</span>
+      </div>
+      <div className="bg-surface-container-lowest rounded-xl p-4 border border-outline-variant/20">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 rounded-lg bg-secondary/10 flex items-center justify-center">
+            <span className="material-symbols-outlined text-secondary text-[18px]">schedule</span>
+          </div>
+          <span className="font-caption text-caption text-on-surface-variant">Pending</span>
+        </div>
+        <span className="font-headline-md text-headline-md text-on-surface">{stats.pending}</span>
+      </div>
+      <div className="bg-surface-container-lowest rounded-xl p-4 border border-outline-variant/20">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+            <span className="material-symbols-outlined text-primary text-[18px]">payments</span>
+          </div>
+          <span className="font-caption text-caption text-on-surface-variant">Total Belanja</span>
+        </div>
+        <span className="font-headline-md text-[18px] font-bold text-on-surface">Rp {stats.totalSpent.toLocaleString('id-ID')}</span>
+      </div>
+    </div>
+  </div>
+</section>
 
-<div className="flex flex-col">
+{/* Transactions Table */}
+<section className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8">
+  {/* Controls */}
+  <div className="flex flex-col md:flex-row gap-4 mb-6">
+    <div className="relative flex-1">
+      <span className="material-symbols-outlined absolute left-3.5 top-3 text-on-surface-variant text-[20px]">search</span>
+      <input 
+        className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl pl-11 pr-4 py-3 font-body-md text-body-md text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all" 
+        placeholder="Cari berdasarkan nama game atau ID transaksi..." 
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+    </div>
+    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+      {['all', 'completed', 'pending', 'expired', 'failed'].map(status => (
+        <button 
+          key={status}
+          onClick={() => setFilterStatus(status)}
+          className={`whitespace-nowrap px-4 py-3 rounded-xl font-label-md text-label-md transition-all ${
+            filterStatus === status 
+              ? 'bg-primary text-on-primary shadow-md shadow-primary/20' 
+              : 'bg-surface-container-lowest text-on-surface-variant border border-outline-variant/30 hover:border-primary/30'
+          }`}
+        >
+          {status === 'all' ? 'Semua' : status === 'completed' ? 'Berhasil' : status === 'pending' ? 'Pending' : status === 'expired' ? 'Expired' : 'Gagal'}
+        </button>
+      ))}
+    </div>
+  </div>
 
-<div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-outline-variant items-center hover:bg-surface-container/30 transition-colors">
-<div className="col-span-1 md:col-span-4 flex items-center gap-4">
-<img className="w-12 h-12 rounded-lg object-cover bg-surface-container-highest" data-alt="High resolution icon for a popular mobile MOBA game featuring bold colors and stylized fantasy character elements in a modern, clean light mode setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnNM6xe_KZYe_GDVNY_Mk-Lkk2JbBz0iSbKrIQ21T-Pty5Zb5ubFKWGIHXeyOBRCB7bVMgqQvOlPI-TyWBWL_EgYG9W-lTDPcCGTgw1nzFZrMhqmMuj_lyHxC4rtVo-aovN7iFHJFK94Q5JasRJ-sQvhgLsRNwNfEAmxBcymCtQQ9mSw8-UWjyi7yVcN97NU5A2Vg0ujk6Y5kmtwW1J0Hl9UrYEq5JEwvCobLiRlwfQ7vFo_DbGilSvj0N4rD1_mciEzH5-XZwGN6L" />
-<div>
-<div className="font-headline-md text-[16px] font-bold text-on-surface">Mobile Legends: Bang Bang</div>
-<div className="font-caption text-caption text-on-surface-variant">ID: 12345678 (1234)</div>
-</div>
-</div>
-<div className="col-span-1 md:col-span-2 font-body-md text-body-md font-bold text-on-surface">
-                        Rp 150.000 <span className="font-caption text-caption text-on-surface-variant font-normal block">706 Diamonds</span>
-</div>
-<div className="col-span-1 md:col-span-2 font-body-md text-body-md text-on-surface-variant">
-                        24 Okt 2024
-                    </div>
-<div className="col-span-1 md:col-span-2 flex items-center">
-<span className="bg-tertiary-container/20 text-tertiary px-3 py-1 rounded-full font-label-md text-[12px] flex items-center gap-1">
-<span className="material-symbols-outlined text-[14px]">check_circle</span>
-                            Berhasil
-                        </span>
-</div>
-<div className="col-span-1 md:col-span-2 flex justify-end">
-<button className="text-primary hover:text-primary-container font-label-md text-label-md flex items-center gap-1 transition-colors">
-<span className="material-symbols-outlined text-[18px]">download</span>
-<span className="md:hidden">Invoice</span>
-</button>
-</div>
-</div>
+  {/* Table */}
+  <div className="bg-surface-container-lowest rounded-2xl overflow-hidden border border-outline-variant/20 shadow-sm">
+    {/* Header */}
+    <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-surface-container-low/50 font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant/20">
+      <div className="col-span-4">Game & Detail</div>
+      <div className="col-span-2">Nominal</div>
+      <div className="col-span-2">Tanggal</div>
+      <div className="col-span-2">Status</div>
+      <div className="col-span-2 text-right">Aksi</div>
+    </div>
 
-<div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-outline-variant items-center hover:bg-surface-container/30 transition-colors">
-<div className="col-span-1 md:col-span-4 flex items-center gap-4">
-<img className="w-12 h-12 rounded-lg object-cover bg-surface-container-highest" data-alt="High resolution icon for a popular tactical shooter game featuring a stylized V logo in bold red and white colors, set in a clean light mode environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_7Y0MAZtYizHjqv-CDJpZl4mULZRBCOpyTWcwK106LdebWCwc0MDHcg4dla76-TiEFcfLwsA9BeXywLIAsa3eJY1I-HUu-k0mRto1Dnt5ILSH895O5kAXJBxLwRFPIArj6bw-HWnf0jFCe4jrHPijyyK1QeEZmUHZFeBWLqRgME9GadUl2FKs7OCLtrPNBMxwZ6j9vIVvyBLYR4dde8i3IrAyGwEf41GG2q7hOM5TL2zlpBlY6HZcKx_erLh_AlqJV8qI8Tn4qQf1" />
-<div>
-<div className="font-headline-md text-[16px] font-bold text-on-surface">Valorant</div>
-<div className="font-caption text-caption text-on-surface-variant">Riot ID: Player#EUW</div>
-</div>
-</div>
-<div className="col-span-1 md:col-span-2 font-body-md text-body-md font-bold text-on-surface">
-                        Rp 300.000 <span className="font-caption text-caption text-on-surface-variant font-normal block">2500 VP</span>
-</div>
-<div className="col-span-1 md:col-span-2 font-body-md text-body-md text-on-surface-variant">
-                        23 Okt 2024
-                    </div>
-<div className="col-span-1 md:col-span-2 flex items-center">
-<span className="bg-secondary-container/20 text-secondary px-3 py-1 rounded-full font-label-md text-[12px] flex items-center gap-1">
-<span className="material-symbols-outlined text-[14px]">schedule</span>
-                            Pending
-                        </span>
-</div>
-<div className="col-span-1 md:col-span-2 flex justify-end">
-<button className="text-on-surface-variant hover:text-on-surface font-label-md text-label-md flex items-center gap-1 transition-colors">
-<span className="material-symbols-outlined text-[18px]">help</span>
-<span className="md:hidden">Bantuan</span>
-</button>
-</div>
-</div>
-</div>
-<div className="p-4 flex justify-center border-t border-outline-variant">
-<button className="font-label-md text-label-md text-primary hover:text-primary-container transition-colors">Muat Lebih Banyak</button>
-</div>
-</div>
+    {/* Body */}
+    <div className="flex flex-col divide-y divide-outline-variant/15">
+      {filteredTx.length === 0 ? (
+        <div className="p-12 text-center">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-surface-container-high flex items-center justify-center">
+            <span className="material-symbols-outlined text-[40px] text-on-surface-variant/50">receipt_long</span>
+          </div>
+          <h3 className="font-headline-md text-headline-md text-on-surface mb-2">
+            {searchQuery || filterStatus !== 'all' ? 'Tidak Ditemukan' : 'Belum Ada Pesanan'}
+          </h3>
+          <p className="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto">
+            {searchQuery || filterStatus !== 'all' 
+              ? 'Coba ubah kata kunci atau filter pencarian Anda.' 
+              : 'Pesanan top-up game Anda akan muncul di sini.'}
+          </p>
+        </div>
+      ) : (
+        filteredTx.map(tx => (
+          <div key={tx.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 p-4 md:py-5 items-center hover:bg-primary/[0.02] transition-colors group">
+            <div className="col-span-1 md:col-span-4 flex items-center gap-3">
+              {tx.games?.image_url ? (
+                <img className="w-11 h-11 rounded-xl object-cover ring-2 ring-outline-variant/10" alt={tx.games?.title} src={tx.games.image_url} />
+              ) : (
+                <div className="w-11 h-11 rounded-xl bg-surface-container-high flex items-center justify-center ring-2 ring-outline-variant/10">
+                  <span className="material-symbols-outlined text-on-surface-variant text-[20px]">sports_esports</span>
+                </div>
+              )}
+              <div>
+                <div className="font-label-md text-[14px] font-bold text-on-surface group-hover:text-primary transition-colors">{tx.games?.title || 'Unknown Game'}</div>
+                <div className="font-caption text-[11px] text-on-surface-variant">#{tx.id.substring(0,8).toUpperCase()}</div>
+              </div>
+            </div>
+            <div className="col-span-1 md:col-span-2">
+              <span className="md:hidden font-caption text-caption text-on-surface-variant mr-2">Nominal:</span>
+              <span className="font-label-md text-[14px] font-bold text-on-surface">Rp {Number(tx.amount).toLocaleString('id-ID')}</span>
+            </div>
+            <div className="col-span-1 md:col-span-2 font-body-md text-[13px] text-on-surface-variant">
+              <span className="md:hidden font-caption text-caption text-on-surface-variant mr-2">Tanggal:</span>
+              {new Date(tx.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </div>
+            <div className="col-span-1 md:col-span-2 flex items-center">
+              {tx.status === 'completed' && (
+                <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full font-label-md text-[11px]">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Berhasil
+                </span>
+              )}
+              {tx.status === 'pending' && (
+                <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full font-label-md text-[11px]">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span> Pending
+                </span>
+              )}
+              {tx.status === 'expired' && (
+                <span className="inline-flex items-center gap-1.5 bg-gray-50 text-gray-600 border border-gray-200 px-3 py-1 rounded-full font-label-md text-[11px]">
+                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span> Expired
+                </span>
+              )}
+              {tx.status === 'failed' && (
+                <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full font-label-md text-[11px]">
+                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Gagal
+                </span>
+              )}
+            </div>
+            <div className="col-span-1 md:col-span-2 flex justify-start md:justify-end gap-2">
+              {tx.status === 'pending' && tx._invoiceUrl && (
+                <a 
+                  href={tx._invoiceUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg transition-colors flex items-center gap-1" 
+                  title="Lanjutkan Pembayaran"
+                >
+                  <span className="material-symbols-outlined text-[18px]">payments</span>
+                  <span className="text-[11px] font-label-md hidden sm:inline">Bayar</span>
+                </a>
+              )}
+              {tx.status === 'completed' && (
+                <a 
+                  href={`/invoice?id=${tx.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-on-surface-variant hover:bg-surface-container-high p-2 rounded-lg transition-colors flex items-center gap-1" 
+                  title="Download Invoice"
+                >
+                  <span className="material-symbols-outlined text-[18px]">download</span>
+                  <span className="text-[11px] font-label-md hidden sm:inline">Invoice</span>
+                </a>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+
+  {/* Pagination Info */}
+  {filteredTx.length > 0 && (
+    <div className="mt-4 flex justify-between items-center">
+      <span className="font-caption text-caption text-on-surface-variant">
+        Menampilkan {filteredTx.length} dari {txList.length} transaksi
+      </span>
+    </div>
+  )}
+</section>
 </main>
 
-<footer className="bg-surface-container-low dark:bg-inverse-surface border-t border-outline-variant dark:border-outline py-12">
-<div className="flex flex-col md:flex-row justify-between items-center px-margin-mobile md:px-margin-desktop w-full max-w-container-max mx-auto">
-<div className="font-display-lg text-headline-md font-bold text-on-surface dark:text-inverse-on-surface mb-4 md:mb-0">
-                NexusPay
-            </div>
-<div className="flex gap-6 mb-4 md:mb-0">
-<a className="font-body-md text-body-md font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-secondary-container transition-all opacity-80 hover:opacity-100" href="#">Terms</a>
-<a className="font-body-md text-body-md font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-secondary-container transition-all opacity-80 hover:opacity-100" href="#">Privacy</a>
-<a className="font-body-md text-body-md font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-secondary-container transition-all opacity-80 hover:opacity-100" href="#">Support</a>
-</div>
-<div className="font-body-md text-body-md text-on-surface-variant">
-                © 2024 NexusPay. Premium Gaming Solutions.
-            </div>
-</div>
-</footer>
+<Footer />
 
     </>
   );

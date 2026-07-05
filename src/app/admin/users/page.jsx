@@ -1,251 +1,505 @@
-
-import React from 'react';
+"use client"
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function UsersComponent() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('create');
+  const [formData, setFormData] = useState({ id: '', email: '', password: '', first_name: '', last_name: '', phone: '', role: 'user', avatar_url: '' });
+  const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Delete Modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // DataTable state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sortField, setSortField] = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const perPage = 10;
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/admin/data?table=users');
+      if (!res.ok) throw new Error('Failed to fetch data');
+      const data = await res.json();
+      setUsers(data || []);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Filtered + searched + sorted data
+  const filtered = useMemo(() => {
+    let result = [...users];
+
+    if (roleFilter !== 'all') {
+      result = result.filter(u => u.role === roleFilter);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(u =>
+        u.email?.toLowerCase().includes(q) ||
+        u.first_name?.toLowerCase().includes(q) ||
+        u.last_name?.toLowerCase().includes(q) ||
+        u.phone?.toLowerCase().includes(q) ||
+        u.id?.toLowerCase().includes(q)
+      );
+    }
+
+    result.sort((a, b) => {
+      let valA, valB;
+      if (sortField === 'created_at') {
+        valA = new Date(a.created_at).getTime();
+        valB = new Date(b.created_at).getTime();
+      } else if (sortField === 'name') {
+        valA = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase();
+        valB = `${b.first_name || ''} ${b.last_name || ''}`.toLowerCase();
+      } else if (sortField === 'email') {
+        valA = (a.email || '').toLowerCase();
+        valB = (b.email || '').toLowerCase();
+      } else {
+        valA = a[sortField] || '';
+        valB = b[sortField] || '';
+      }
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [users, searchQuery, roleFilter, sortField, sortDir]);
+
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, roleFilter]);
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortField !== field) return <span className="material-symbols-outlined text-[14px] ml-1 opacity-30">unfold_more</span>;
+    return <span className="material-symbols-outlined text-[14px] ml-1 text-primary">{sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'}</span>;
+  };
+
+  const openCreateModal = () => {
+    setModalMode('create');
+    setFormData({ id: '', email: '', password: '', first_name: '', last_name: '', phone: '', role: 'user', avatar_url: '' });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (user) => {
+    setModalMode('edit');
+    setFormData({ 
+      id: user.id, email: user.email || '', password: '', 
+      first_name: user.first_name || '', last_name: user.last_name || '', 
+      phone: user.phone || '', role: user.role || 'user', avatar_url: user.avatar_url || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => setIsModalOpen(false);
+
+  const openDeleteModal = (user) => { setItemToDelete(user); setIsDeleteModalOpen(true); };
+  const closeDeleteModal = () => { setIsDeleteModalOpen(false); setItemToDelete(null); };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { alert("You must be logged in"); setUploadingImage(false); return; }
+
+    const payload = new FormData();
+    payload.append('file', file);
+    payload.append('bucket', 'avatars');
+
+    try {
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        body: payload,
+      });
+      const data = await res.json();
+      if (res.ok) { setFormData({ ...formData, avatar_url: data.url }); }
+      else { alert(data.error || 'Failed to upload image'); }
+    } catch (err) {
+      alert('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      let payload = {
+        first_name: formData.first_name, last_name: formData.last_name,
+        phone: formData.phone, role: formData.role, avatar_url: formData.avatar_url
+      };
+      if (modalMode === 'create') {
+        payload.email = formData.email;
+        payload.password = formData.password;
+        const res = await fetch('/api/admin/crud', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table: 'users', data: payload }) });
+        if (!res.ok) throw new Error('Failed to create user');
+      } else {
+        const res = await fetch('/api/admin/crud', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table: 'users', id: formData.id, data: payload }) });
+        if (!res.ok) throw new Error('Failed to update user');
+      }
+      await fetchUsers();
+      closeModal();
+    } catch (err) {
+      alert('Error saving user: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/crud?table=users&id=${itemToDelete.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      await fetchUsers();
+      closeDeleteModal();
+    } catch (err) {
+      alert('Error deleting user');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
-      
+      <main className="flex-1 flex flex-col min-h-screen transition-all duration-300 bg-background relative overflow-y-auto">
+        <div className="p-6 md:p-margin-desktop max-w-container-max mx-auto w-full flex flex-col gap-8 pb-24 mt-4">
 
-<nav className="bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm sticky top-0 z-50">
-<div className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto h-20">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="font-headline-lg text-headline-lg text-on-surface">User Management</h1>
+              <p className="font-body-md text-body-md text-on-surface-variant mt-1">Manage registered users, their roles, and account statuses.</p>
+            </div>
+            <button 
+              onClick={openCreateModal}
+              className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all flex items-center justify-center gap-2 whitespace-nowrap self-start md:self-auto"
+            >
+              <span className="material-symbols-outlined text-[18px]">person_add</span>
+              Add User
+            </button>
+          </div>
 
-<a className="font-display-lg text-display-lg font-extrabold text-primary tracking-tight" href="#">
-                NexusPay
-            </a>
+          {/* DataTable Panel */}
+          <div className="glass-panel rounded-xl overflow-hidden border border-outline-variant/30 flex flex-col">
+            {/* Search & Filter Bar */}
+            <div className="p-4 border-b border-outline-variant/30 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between bg-surface-container-lowest/30">
+              <div className="relative flex-1 w-full sm:max-w-sm">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+                <input
+                  type="text"
+                  placeholder="Search by name, email, phone..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-surface-container border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface text-sm"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <select
+                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2.5 text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  value={roleFilter}
+                  onChange={e => setRoleFilter(e.target.value)}
+                >
+                  <option value="all">All Roles</option>
+                  <option value="admin">Admin</option>
+                  <option value="user">User</option>
+                </select>
+                <div className="text-sm text-on-surface-variant whitespace-nowrap">
+                  {filtered.length} user{filtered.length !== 1 && 's'}
+                </div>
+              </div>
+            </div>
 
-<div className="hidden md:flex items-center gap-gutter">
-<a className="font-label-md text-label-md text-on-surface-variant font-medium hover:text-primary transition-all duration-200" href="#">Dashboard</a>
-<a className="font-label-md text-label-md text-primary font-bold border-b-2 border-primary pb-1" href="#">Users</a>
-<a className="font-label-md text-label-md text-on-surface-variant font-medium hover:text-primary transition-all duration-200" href="#">Transactions</a>
-<a className="font-label-md text-label-md text-on-surface-variant font-medium hover:text-primary transition-all duration-200" href="#">Settings</a>
-</div>
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-outline-variant/30 bg-surface-container/50">
+                    <th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant whitespace-nowrap cursor-pointer select-none hover:text-primary transition-colors" onClick={() => toggleSort('name')}>
+                      <span className="inline-flex items-center">User<SortIcon field="name" /></span>
+                    </th>
+                    <th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant whitespace-nowrap cursor-pointer select-none hover:text-primary transition-colors" onClick={() => toggleSort('email')}>
+                      <span className="inline-flex items-center">Contact<SortIcon field="email" /></span>
+                    </th>
+                    <th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant whitespace-nowrap cursor-pointer select-none hover:text-primary transition-colors" onClick={() => toggleSort('role')}>
+                      <span className="inline-flex items-center">Role<SortIcon field="role" /></span>
+                    </th>
+                    <th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant whitespace-nowrap cursor-pointer select-none hover:text-primary transition-colors" onClick={() => toggleSort('created_at')}>
+                      <span className="inline-flex items-center">Joined<SortIcon field="created_at" /></span>
+                    </th>
+                    <th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant text-right whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/20">
+                  {loading ? (
+                    <tr><td colSpan="5" className="py-12 text-center text-on-surface-variant">
+                      <span className="material-symbols-outlined animate-spin text-3xl">progress_activity</span>
+                      <p className="mt-3">Loading users...</p>
+                    </td></tr>
+                  ) : paginated.length === 0 ? (
+                    <tr><td colSpan="5" className="py-12 text-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-4xl mb-2">search_off</span>
+                      <p className="mt-2">{searchQuery || roleFilter !== 'all' ? 'No users match your filters.' : 'No users found.'}</p>
+                    </td></tr>
+                  ) : (
+                    paginated.map((user) => (
+                      <tr key={user.id} className="hover:bg-surface-container-lowest/50 transition-colors">
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                              {user.avatar_url ? (
+                                <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                              ) : (
+                                (user.first_name?.[0] || user.email[0]).toUpperCase()
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-body-md text-on-surface font-semibold truncate max-w-[150px]">
+                                {user.first_name} {user.last_name}
+                              </div>
+                              <div className="font-caption text-caption text-on-surface-variant mt-0.5 font-mono text-[10px]">
+                                {user.id.substring(0, 8)}...
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="font-body-md text-on-surface truncate max-w-[200px]">{user.email}</div>
+                          {user.phone && <div className="font-caption text-caption text-on-surface-variant mt-0.5">{user.phone}</div>}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+                            user.role === 'admin' 
+                              ? 'bg-secondary-container text-on-secondary-container border border-secondary-container/50' 
+                              : 'bg-surface-variant text-on-surface-variant border border-outline-variant/30'
+                          }`}>
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-on-surface-variant text-sm">
+                          {new Date(user.created_at).toLocaleDateString('id-ID')}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => openEditModal(user)} className="w-8 h-8 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center" title="Edit User">
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                            <button onClick={() => openDeleteModal(user)} className="w-8 h-8 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-error transition-colors flex items-center justify-center" title="Delete User">
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-<div className="hidden md:flex items-center gap-4">
-<div className="relative">
-<span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" >search</span>
-<input className="bg-surface-container-low border border-outline-variant rounded-full py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none font-body-md text-body-md text-on-surface w-64 placeholder:text-outline-variant transition-all" placeholder="Search..." type="text"/>
-</div>
-<button className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
-<img alt="Admin Profile" className="w-full h-full object-cover" data-alt="A small circular avatar of an administrator with short dark hair, wearing glasses and a crisp white shirt, set against a bright, airy background in a light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpsb_YF4tMCjqSrYbJYHW9HyuP1WpavdHbAwR3BQDzaj8dCA5_WEDHdD4Dh3r7J34mBLHTQLPo8pOugxh1JEHAAFgHLcpbiGH68297wkel0FoeWTAvjNd2tRdm5xI0w6M0Fa-gzMrCs7P1VprNvtl03QjHUw-x390FCs-b2W_DxWpr910nA0li3zKlqbidrVTj9C8snWTliHaIXl8AOR85r87yj9XRqbyXcntcWpw4fTYaXJVkwLegq5jLz8yDSRl_vSyKargQ1dD4"/>
-</button>
-</div>
+            {/* Pagination */}
+            {!loading && totalPages > 0 && (
+              <div className="p-4 border-t border-outline-variant/30 flex flex-col sm:flex-row items-center justify-between gap-3 bg-surface-container-lowest/30">
+                <div className="font-caption text-caption text-on-surface-variant">
+                  Showing {Math.min((currentPage - 1) * perPage + 1, filtered.length)}–{Math.min(currentPage * perPage, filtered.length)} of {filtered.length} users
+                </div>
+                <div className="flex items-center gap-1">
+                  <button disabled={currentPage === 1} onClick={() => setCurrentPage(1)} className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">first_page</span>
+                  </button>
+                  <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                  </button>
 
-<button className="md:hidden text-on-surface p-2">
-<span className="material-symbols-outlined" >menu</span>
-</button>
-</div>
-</nav>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .reduce((acc, p, idx, arr) => {
+                      if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, i) =>
+                      p === '...' ? (
+                        <span key={`ellipsis-${i}`} className="w-9 h-9 flex items-center justify-center text-on-surface-variant text-sm">…</span>
+                      ) : (
+                        <button key={p} onClick={() => setCurrentPage(p)}
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium transition-colors ${
+                            currentPage === p ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container'
+                          }`}>{p}</button>
+                      )
+                    )}
 
-<main className="flex-grow w-full px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto py-12 flex flex-col gap-8">
+                  <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                  </button>
+                  <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)} className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">last_page</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
 
-<header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-<div>
-<h1 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">User Management</h1>
-<p className="font-body-md text-body-md text-on-surface-variant">Review and manage registered user accounts.</p>
-</div>
+      {/* CRUD Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-surface rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="px-6 py-4 border-b border-outline-variant/30 flex justify-between items-center sticky top-0 bg-surface z-10">
+              <h2 className="font-headline-md text-headline-md text-on-surface">
+                {modalMode === 'create' ? 'Add New User' : 'Edit User'}
+              </h2>
+              <button onClick={closeModal} className="text-on-surface-variant hover:text-error transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSave} className="p-6 flex flex-col gap-4">
+              {/* Avatar Upload */}
+              <div className="flex justify-center mb-2">
+                <div className="w-24 h-24 rounded-full bg-surface-container border-2 border-outline-variant flex items-center justify-center overflow-hidden group cursor-pointer relative"
+                  onClick={() => fileInputRef.current?.click()}>
+                  {formData.avatar_url ? (
+                    <img src={formData.avatar_url} alt="Avatar Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="material-symbols-outlined text-on-surface-variant text-4xl">person</span>
+                  )}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white">
+                    <span className="material-symbols-outlined mb-1 text-sm">photo_camera</span>
+                    <span className="text-[10px]">Upload</span>
+                  </div>
+                  {uploadingImage && (
+                    <div className="absolute inset-0 bg-surface-container/80 flex items-center justify-center backdrop-blur-sm">
+                      <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
+                    </div>
+                  )}
+                </div>
+                <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handleImageUpload} />
+              </div>
 
-<div className="flex gap-4 items-center">
-<button className="glass-panel px-4 py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:text-primary flex items-center gap-2 transition-colors">
-<span className="material-symbols-outlined text-[18px]" >filter_list</span>
-                    Filter
+              {modalMode === 'create' && (
+                <>
+                  <div>
+                    <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Email</label>
+                    <input type="email" required className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                      value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Password</label>
+                    <input type="password" required minLength="6" className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                      value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                  </div>
+                </>
+              )}
+              {modalMode === 'edit' && (
+                <div>
+                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Email</label>
+                  <input type="email" disabled className="w-full bg-surface-variant/50 border border-outline-variant/30 rounded-lg px-4 py-2 text-on-surface-variant cursor-not-allowed" value={formData.email} />
+                  <p className="text-xs text-on-surface-variant mt-1">Email cannot be changed here.</p>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1">First Name</label>
+                  <input type="text" required className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                    value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Last Name</label>
+                  <input type="text" required className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                    value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Phone</label>
+                  <input type="tel" className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                    value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1">Role</label>
+                  <select className="w-full bg-surface-container border border-outline-variant/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                    value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button type="button" onClick={closeModal} className="px-5 py-2.5 rounded-lg border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors">Cancel</button>
+                <button type="submit" disabled={saving || uploadingImage} className="px-5 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50">
+                  {saving && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
+                  Save User
                 </button>
-<button className="bg-gradient-to-r from-primary to-primary-container text-on-primary px-6 py-2 rounded-lg font-label-md text-label-md shadow-[0_4px_14px_0_rgba(0,101,145,0.39)] hover:scale-[1.02] hover:shadow-[0_6px_20px_rgba(0,101,145,0.23)] transition-all flex items-center gap-2">
-<span className="material-symbols-outlined text-[18px]" >person_add</span>
-                    Add User
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-surface rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-error/10 text-error flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-3xl">delete_forever</span>
+              </div>
+              <h3 className="font-headline-md text-headline-md text-on-surface mb-2">Delete User</h3>
+              <p className="font-body-md text-body-md text-on-surface-variant mb-2">
+                Are you sure you want to delete <span className="font-semibold text-on-surface">{itemToDelete?.email}</span>?
+              </p>
+              <p className="font-caption text-caption text-error mb-6">
+                This will completely remove their account and all associated data. This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button onClick={closeDeleteModal} disabled={deleting} className="px-6 py-2.5 rounded-lg border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors">Cancel</button>
+                <button onClick={confirmDelete} disabled={deleting} className="px-6 py-2.5 rounded-lg bg-error text-white hover:bg-error/90 transition-colors flex items-center gap-2">
+                  {deleting && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
+                  Delete User
                 </button>
-</div>
-</header>
-
-<section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-<div className="glass-panel rounded-xl p-6 flex flex-col gap-2">
-<div className="flex items-center gap-2 text-on-surface-variant mb-1">
-<span className="material-symbols-outlined text-primary" >group</span>
-<span className="font-label-md text-label-md">Total Users</span>
-</div>
-<div className="font-headline-lg text-headline-lg text-on-surface">14,209</div>
-<div className="font-caption text-caption text-secondary flex items-center gap-1 mt-1">
-<span className="material-symbols-outlined text-[14px]" >trending_up</span>
-                    +12% this month
-                </div>
-</div>
-<div className="glass-panel rounded-xl p-6 flex flex-col gap-2">
-<div className="flex items-center gap-2 text-on-surface-variant mb-1">
-<span className="material-symbols-outlined text-tertiary" >account_balance_wallet</span>
-<span className="font-label-md text-label-md">Active Buyers</span>
-</div>
-<div className="font-headline-lg text-headline-lg text-on-surface">8,432</div>
-<div className="font-caption text-caption text-outline mt-1">
-                    Users with &gt;1 transaction
-                </div>
-</div>
-<div className="glass-panel rounded-xl p-6 flex flex-col gap-2">
-<div className="flex items-center gap-2 text-on-surface-variant mb-1">
-<span className="material-symbols-outlined text-error" >warning</span>
-<span className="font-label-md text-label-md">Restricted Accounts</span>
-</div>
-<div className="font-headline-lg text-headline-lg text-on-surface">124</div>
-<div className="font-caption text-caption text-outline mt-1">
-                    Requires review
-                </div>
-</div>
-</section>
-
-<section className="glass-panel rounded-xl overflow-hidden flex flex-col">
-<div className="overflow-x-auto w-full">
-<table className="w-full text-left border-collapse min-w-[800px]">
-<thead>
-<tr className="bg-surface-container-high border-b border-outline-variant">
-<th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">User</th>
-<th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Status</th>
-<th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Total Spent</th>
-<th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Join Date</th>
-<th className="py-4 px-6 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
-</tr>
-</thead>
-<tbody className="font-body-md text-body-md text-on-surface">
-
-<tr className="zebra-row border-b border-outline-variant/30 hover:bg-surface-variant/50 transition-colors group">
-<td className="py-4 px-6">
-<div className="flex items-center gap-4">
-<img alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-outline-variant" data-alt="A portrait of a young professional gamer with short spiky hair and neon accent lighting, wearing a stylish esports jersey, bright light mode background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkFuSzlZLKQ7c4HhpPmPmJIhGeP8F6NVuw8nSmJxP9OJPxWxta9t09T2q9ImNsuYlCTfz-j5csy6KiTIDDWdgywoWgOFx9MazEy0yvtAGWunooPv_oXYpJfngM9htzlt0MseZvMu4yiNUgVqmmNPXRssJa5lOpRJ9hcn-yEI6mKOzjSQIeMS9-H9Jpqal9wxeS5NZ0vIIUNpRXiiyuQygxhRXhvnLGDmQ7wAijJ42W0_B4P2bZ7DjV22pR63W4AVDQQoO5uqz3VuYg"/>
-<div>
-<div className="font-semibold text-on-surface">AlexChen_99</div>
-<div className="font-caption text-caption text-on-surface-variant">alex.chen@example.com</div>
-</div>
-</div>
-</td>
-<td className="py-4 px-6">
-<span className="inline-flex items-center gap-1.5 py-1 px-2 rounded-full bg-primary-fixed text-on-primary-fixed text-[12px] font-semibold">
-<span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                                    Active
-                                </span>
-</td>
-<td className="py-4 px-6 font-medium text-secondary-container">
-                                $1,245.50
-                            </td>
-<td className="py-4 px-6 text-on-surface-variant">
-                                Oct 12, 2023
-                            </td>
-<td className="py-4 px-6 text-right">
-<div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-<button className="p-2 text-on-surface-variant hover:text-primary bg-white rounded-lg border border-outline-variant hover:border-primary transition-colors tooltip-trigger" title="View Details">
-<span className="material-symbols-outlined text-[20px]" >visibility</span>
-</button>
-<button className="p-2 text-on-surface-variant hover:text-error bg-white rounded-lg border border-outline-variant hover:border-error transition-colors tooltip-trigger" title="Restrict Account">
-<span className="material-symbols-outlined text-[20px]" >block</span>
-</button>
-</div>
-</td>
-</tr>
-
-<tr className="zebra-row border-b border-outline-variant/30 hover:bg-surface-variant/50 transition-colors group">
-<td className="py-4 px-6">
-<div className="flex items-center gap-4">
-<div className="w-10 h-10 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center font-bold text-lg border border-outline-variant">S</div>
-<div>
-<div className="font-semibold text-on-surface">SarahViper</div>
-<div className="font-caption text-caption text-on-surface-variant">s.viper@example.com</div>
-</div>
-</div>
-</td>
-<td className="py-4 px-6">
-<span className="inline-flex items-center gap-1.5 py-1 px-2 rounded-full bg-primary-fixed text-on-primary-fixed text-[12px] font-semibold">
-<span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                                    Active
-                                </span>
-</td>
-<td className="py-4 px-6 font-medium text-secondary-container">
-                                $890.00
-                            </td>
-<td className="py-4 px-6 text-on-surface-variant">
-                                Nov 05, 2023
-                            </td>
-<td className="py-4 px-6 text-right">
-<div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-<button className="p-2 text-on-surface-variant hover:text-primary bg-white rounded-lg border border-outline-variant hover:border-primary transition-colors" title="View Details">
-<span className="material-symbols-outlined text-[20px]" >visibility</span>
-</button>
-<button className="p-2 text-on-surface-variant hover:text-error bg-white rounded-lg border border-outline-variant hover:border-error transition-colors" title="Restrict Account">
-<span className="material-symbols-outlined text-[20px]" >block</span>
-</button>
-</div>
-</td>
-</tr>
-
-<tr className="zebra-row border-b border-outline-variant/30 hover:bg-surface-variant/50 transition-colors group">
-<td className="py-4 px-6">
-<div className="flex items-center gap-4">
-<img alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-outline-variant" data-alt="A casual portrait of a male user wearing a headset, smiling slightly, well-lit studio environment, light aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOQD0TmfhL-gTJ3PvmxVKnQcWElEX6BXw6LmXlNHn-sCe3hFGWCQ2GdgAftSYiyD75HFjZkoSM-b3WIY8Sfkk1haBs8bgnmz5P3WSatkwNCBAYMdE35deK-V7OioR4ve7sC6LBFD3xd0k9pYxJGzNaprNIJHEejeYyRdIX--gqXYMI7F2DfXK79kD1t3A_fxeYlNhY7yAkIFJzvgDLejQx6a_I082dFE0scq4SBy6a2Cp1Gxr8xe_3gd9xjkjBBmoD7-63qqMsRl0f"/>
-<div>
-<div className="font-semibold text-on-surface">xX_NoobSlayer_Xx</div>
-<div className="font-caption text-caption text-on-surface-variant">noobslayer@example.com</div>
-</div>
-</div>
-</td>
-<td className="py-4 px-6">
-<span className="inline-flex items-center gap-1.5 py-1 px-2 rounded-full bg-error-container text-on-error-container text-[12px] font-semibold border border-error/20">
-<span className="w-1.5 h-1.5 rounded-full bg-error"></span>
-                                    Restricted
-                                </span>
-</td>
-<td className="py-4 px-6 font-medium text-secondary-container">
-                                $12.50
-                            </td>
-<td className="py-4 px-6 text-on-surface-variant">
-                                Jan 15, 2024
-                            </td>
-<td className="py-4 px-6 text-right">
-<div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-<button className="p-2 text-on-surface-variant hover:text-primary bg-white rounded-lg border border-outline-variant hover:border-primary transition-colors" title="View Details">
-<span className="material-symbols-outlined text-[20px]" >visibility</span>
-</button>
-<button className="p-2 text-error hover:text-on-error hover:bg-error bg-error-container rounded-lg border border-error/30 transition-colors" title="Unrestrict Account">
-<span className="material-symbols-outlined text-[20px]" >lock_open</span>
-</button>
-</div>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-
-<div className="p-4 border-t border-outline-variant flex items-center justify-between bg-surface-container-lowest">
-<div className="font-caption text-caption text-on-surface-variant">
-                    Showing 1 to 3 of 14,209 results
-                </div>
-<div className="flex gap-2">
-<button className="p-2 rounded-lg border border-outline-variant text-outline hover:bg-surface-variant transition-colors disabled:opacity-50" disabled="">
-<span className="material-symbols-outlined text-[20px]" >chevron_left</span>
-</button>
-<button className="p-2 rounded-lg border border-outline-variant text-on-surface hover:bg-surface-variant transition-colors">
-<span className="material-symbols-outlined text-[20px]" >chevron_right</span>
-</button>
-</div>
-</div>
-</section>
-</main>
-
-<footer className="bg-surface-container-low dark:bg-inverse-surface border-t border-outline-variant mt-auto">
-<div className="flex flex-col md:flex-row justify-between items-center w-full px-margin-desktop py-12 max-w-container-max mx-auto gap-gutter">
-<div className="flex flex-col gap-4">
-<span className="font-headline-md text-headline-md font-bold text-on-surface dark:text-inverse-on-surface">
-                    NexusPay
-                </span>
-<p className="font-body-md text-body-md text-on-surface-variant">
-                    © 2024 NexusPay. All rights reserved. High-performance gaming transactions.
-                </p>
-</div>
-<div className="flex flex-wrap gap-4 font-label-md text-label-md">
-<a className="text-on-surface-variant hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Terms of Service</a>
-<a className="text-on-surface-variant hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Privacy Policy</a>
-<a className="text-on-surface-variant hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Refund Policy</a>
-<a className="text-on-surface-variant hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Contact Support</a>
-<a className="text-on-surface-variant hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">About Us</a>
-<a className="text-on-surface-variant hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded" href="#">Partners</a>
-</div>
-</div>
-</footer>
-
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

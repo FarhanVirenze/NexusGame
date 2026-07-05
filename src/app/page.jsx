@@ -1,17 +1,20 @@
 
 import React from 'react';
-import { fetchGames } from '@/lib/supabaseClient';
+import { fetchGamesServer } from '@/lib/supabaseServer';
 import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+
+export const revalidate = 0;
 
 export default async function PageComponent() {
-  const games = await fetchGames();
+  const games = await fetchGamesServer();
   return (
     <>
       
 <Navbar />
 <main className="flex-grow pt-20">
 
-<section className="relative h-[600px] md:h-[700px] w-full overflow-hidden bg-black" id="hero-carousel">
+<section className="relative h-[400px] md:h-[500px] w-full overflow-hidden bg-black" id="hero-carousel">
 
 <div className="relative w-full h-full">
 
@@ -89,36 +92,40 @@ export default async function PageComponent() {
 </div>
 </section>
 
-<section className="py-24 bg-surface-container-lowest relative z-20">
+<section className="py-16 md:py-20 bg-surface-container-lowest relative z-20">
 <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
-<div className="flex justify-between items-end mb-12">
+<div className="flex justify-between items-end mb-10">
 <div>
-<h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">Trending Games</h2>
-<p className="font-body-md text-body-md text-on-surface-variant">Top up your favorite titles in seconds.</p>
+<div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full w-fit border border-primary/20 mb-3">
+  <span className="material-symbols-outlined text-sm">trending_up</span>
+  <span className="font-label-md text-label-md">Populer</span>
 </div>
-<a className="hidden sm:flex items-center gap-1 font-label-md text-label-md text-primary hover:underline" href="#">
-                        View All <span className="material-symbols-outlined text-sm">chevron_right</span>
+<h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-1">Trending Games</h2>
+<p className="font-body-md text-body-md text-on-surface-variant">Top up game favorit kamu dalam hitungan detik.</p>
+</div>
+<a className="hidden sm:flex items-center gap-1 font-label-md text-label-md text-primary hover:gap-2 transition-all bg-primary/5 px-4 py-2 rounded-full border border-primary/20 hover:bg-primary/10" href="#">
+  Lihat Semua <span className="material-symbols-outlined text-sm">chevron_right</span>
 </a>
 </div>
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
 {games.map(game => (
-<a key={game.id} href={`/game/${game.id}`} className="game-card glass-panel rounded-xl overflow-hidden cursor-pointer group block">
-<div className="relative h-48 overflow-hidden">
-<img className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={game.title} src={game.image_url} />
-<div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-<div className="absolute bottom-4 left-4 right-4 translate-y-2 opacity-90 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-<h3 className="font-headline-md text-headline-md text-white">{game.title}</h3>
+<a key={game.id} href={`/game/${game.id}`} className="bg-surface-container-lowest rounded-2xl overflow-hidden cursor-pointer group block border border-outline-variant/20 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 transition-all duration-300">
+<div className="relative h-44 overflow-hidden">
+<img className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={game.title} src={game.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070'} />
+<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+<div className="absolute bottom-3 left-4 right-4">
+<h3 className="font-headline-md text-[16px] font-bold text-white drop-shadow-md">{game.title}</h3>
 </div>
 {game.category && (
-<div className="absolute top-3 right-3 bg-secondary-container text-white font-label-md text-caption px-2 py-1 rounded">{game.category}</div>
+<div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md text-white font-label-md text-[11px] px-2.5 py-1 rounded-full border border-white/20">{game.category}</div>
 )}
 </div>
-<div className="p-4 bg-white/50 backdrop-blur-md">
-<p className="font-body-md text-caption text-on-surface-variant">{game.description}</p>
-<div className="mt-3 flex items-center justify-between">
-<span className="font-label-md text-label-md text-primary">From ${game.price}</span>
-<span className="material-symbols-outlined text-primary bg-primary/10 rounded-full p-1">add</span>
+<div className="p-4">
+<p className="font-body-md text-[13px] text-on-surface-variant line-clamp-2 mb-3">{game.description}</p>
+<div className="flex items-center justify-between">
+<span className="font-label-md text-[13px] font-bold text-primary">Top Up Sekarang</span>
+<span className="material-symbols-outlined text-primary bg-primary/10 rounded-full p-1.5 text-[18px] group-hover:bg-primary group-hover:text-on-primary transition-colors">arrow_forward</span>
 </div>
 </div>
 </a>
@@ -128,27 +135,7 @@ export default async function PageComponent() {
 </section>
 </main>
 
-<footer className="bg-surface-container-highest w-full py-12 border-t border-outline-variant/20 mt-auto">
-<div className="flex flex-col md:flex-row justify-between items-center px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto gap-6">
-
-<div className="font-headline-md text-headline-md text-on-surface">
-                NexusPay
-            </div>
-
-<div className="flex flex-wrap justify-center gap-6">
-<a className="font-label-md text-label-md text-on-surface-variant hover:text-secondary hover:underline transition-opacity duration-300" href="#">Terms of Service</a>
-<a className="font-label-md text-label-md text-on-surface-variant hover:text-secondary hover:underline transition-opacity duration-300" href="#">Privacy Policy</a>
-<a className="font-label-md text-label-md text-on-surface-variant hover:text-secondary hover:underline transition-opacity duration-300" href="#">Partner Program</a>
-<a className="font-label-md text-label-md text-on-surface-variant hover:text-secondary hover:underline transition-opacity duration-300" href="#">Refund Policy</a>
-</div>
-
-<div className="font-body-md text-body-md text-on-surface-variant text-center md:text-right">
-                © 2024 NexusPay Gaming. All rights reserved.
-            </div>
-</div>
-</footer>
-
-
+<Footer />
 
     </>
   );
