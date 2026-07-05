@@ -1,10 +1,10 @@
 "use client"
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useSearchParams } from 'next/navigation';
 
-export default function OrderSuccessPage() {
+function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const transactionId = searchParams.get('id');
   const [orderData, setOrderData] = useState(null);
@@ -192,5 +192,24 @@ export default function OrderSuccessPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function OrderSuccessPage() {
+  return (
+    <Suspense fallback={
+      <>
+        <Navbar />
+        <main className="flex-grow w-full max-w-container-max mx-auto flex items-center justify-center min-h-[80vh]">
+          <div className="flex flex-col items-center gap-4 text-on-surface-variant">
+            <span className="material-symbols-outlined animate-spin text-5xl">progress_activity</span>
+            <p className="font-body-lg">Memuat halaman...</p>
+          </div>
+        </main>
+        <Footer />
+      </>
+    }>
+      <OrderSuccessContent />
+    </Suspense>
   );
 }
