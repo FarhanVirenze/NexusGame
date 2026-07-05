@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 export default function HistoryComponent() {
   const [txList, setTxList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAuth, setIsAuth] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -15,7 +16,8 @@ export default function HistoryComponent() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        window.location.href = '/login';
+        setIsAuth(false);
+        setLoading(false);
         return;
       }
 
@@ -197,7 +199,22 @@ export default function HistoryComponent() {
 
     {/* Body */}
     <div className="flex flex-col divide-y divide-outline-variant/15">
-      {filteredTx.length === 0 ? (
+      {!isAuth ? (
+        <div className="p-12 text-center">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="material-symbols-outlined text-[40px] text-primary">lock</span>
+          </div>
+          <h3 className="font-headline-md text-headline-md text-on-surface mb-2">
+            Silakan Login Terlebih Dahulu
+          </h3>
+          <p className="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto mb-6">
+            Anda perlu masuk ke akun Anda untuk melihat riwayat pesanan.
+          </p>
+          <a href="/login" className="inline-flex items-center gap-2 bg-primary text-on-primary px-6 py-3 rounded-xl font-label-md hover:bg-primary/90 transition-colors">
+            Login Sekarang
+          </a>
+        </div>
+      ) : filteredTx.length === 0 ? (
         <div className="p-12 text-center">
           <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-surface-container-high flex items-center justify-center">
             <span className="material-symbols-outlined text-[40px] text-on-surface-variant/50">receipt_long</span>

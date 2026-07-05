@@ -88,10 +88,16 @@ export default function GameDetail() {
       // Get current user session
       const { supabase } = await import('@/lib/supabaseClient');
       const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        alert('Silakan login terlebih dahulu untuk melakukan pembelian.');
+        setIsOrdering(false);
+        return;
+      }
       
       const payload = {
-        userId: session?.user?.id || 'guest',
-        userEmail: session?.user?.email || 'guest@nexusgame.com',
+        userId: session.user.id,
+        userEmail: session.user.email,
         gameId: game.id,
         itemId: selectedItem.id,
         itemName: selectedItem.name,
