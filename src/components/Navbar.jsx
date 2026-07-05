@@ -24,6 +24,7 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -169,10 +170,68 @@ export default function Navbar() {
           )}
         </div>
 
-        <button className="md:hidden text-primary p-2 shrink-0">
-          <span className="material-symbols-outlined">menu</span>
+        <button className="md:hidden text-primary p-2 shrink-0" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          <span className="material-symbols-outlined">{isMenuOpen ? 'close' : 'menu'}</span>
         </button>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMenuOpen && (
+        <div className="md:hidden absolute top-20 left-0 w-full bg-surface border-b border-outline-variant/30 shadow-lg flex flex-col p-4 animate-in slide-in-from-top-2 duration-200">
+          <div className="relative w-full mb-4">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+            <input 
+              className="w-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface placeholder-on-surface-variant/70 rounded-full py-3 pl-12 pr-4 focus:outline-none focus:border-primary font-body-md text-body-md" 
+              placeholder="Search games, vouchers..." 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {/* Simple Search Results for Mobile */}
+            {searchQuery && searchResults.length > 0 && (
+              <div className="mt-2 bg-surface-container-lowest rounded-xl shadow-md border border-outline-variant/30 overflow-hidden max-h-60 overflow-y-auto">
+                {searchResults.map(game => (
+                  <a key={game.id} href={`/game/${game.id}`} className="flex items-center gap-3 p-3 border-b border-outline-variant/10 last:border-0 hover:bg-surface-variant/30">
+                    <img src={game.image_url} alt={game.title} className="w-10 h-10 rounded-lg object-cover" />
+                    <span className="font-label-md text-sm">{game.title}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <a className="py-3 px-4 text-on-surface hover:bg-surface-variant/30 rounded-xl transition-colors font-label-md" href="/">Home</a>
+          <a className="py-3 px-4 text-on-surface hover:bg-surface-variant/30 rounded-xl transition-colors font-label-md" href="/promotions">Promotions</a>
+          <a className="py-3 px-4 text-on-surface hover:bg-surface-variant/30 rounded-xl transition-colors font-label-md" href="/history">History</a>
+          
+          <div className="border-t border-outline-variant/20 mt-2 pt-4 flex flex-col gap-3">
+            {!loading && !user ? (
+              <>
+                <a href="/login" className="py-3 w-full text-center border border-primary text-primary rounded-xl font-label-md hover:bg-primary/5">Sign In</a>
+                <a href="/register" className="py-3 w-full text-center bg-primary text-on-primary rounded-xl font-label-md shadow-md shadow-primary/20">Sign Up</a>
+              </>
+            ) : !loading && user ? (
+              <>
+                <div className="flex items-center gap-3 px-4 py-2 mb-2 bg-surface-variant/30 rounded-xl">
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                    <img src={user.user_metadata?.avatar_url || user.user_metadata?.picture || `https://ui-avatars.com/api/?name=${user.email}`} alt="User" />
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="font-label-md text-sm truncate">{user.user_metadata?.name || user.email}</p>
+                    <p className="font-body-sm text-xs text-on-surface-variant truncate">{user.email}</p>
+                  </div>
+                </div>
+                <a href="/settings" className="py-3 px-4 text-on-surface hover:bg-surface-variant/30 rounded-xl transition-colors font-label-md flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[20px]">settings</span> Settings
+                </a>
+                <button onClick={handleLogout} className="py-3 px-4 text-error hover:bg-error/10 rounded-xl transition-colors font-label-md text-left flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[20px]">logout</span> Logout
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

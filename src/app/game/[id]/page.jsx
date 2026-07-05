@@ -193,11 +193,14 @@ export default function GameDetail() {
     return (
       <>
         <Navbar />
-        <main className="flex-grow w-full max-w-container-max mx-auto flex items-center justify-center min-h-screen">
-          <div className="flex flex-col items-center gap-4 text-on-surface-variant">
-            <span className="material-symbols-outlined animate-spin text-5xl">progress_activity</span>
-            <p className="font-body-lg">Loading game details...</p>
+        <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop flex flex-col justify-center items-center min-h-screen mt-20">
+          <div className="relative flex justify-center items-center">
+            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full w-20 h-20 animate-pulse"></div>
+            <div className="w-16 h-16 border-4 border-surface-variant border-t-primary rounded-full animate-spin relative z-10"></div>
+            <span className="material-symbols-outlined absolute text-primary z-20 text-2xl animate-pulse">sports_esports</span>
           </div>
+          <h2 className="mt-6 font-display-sm text-display-sm text-on-surface tracking-wide">NexusPay</h2>
+          <p className="font-body-md text-body-md text-on-surface-variant mt-2 animate-pulse">Loading game details...</p>
         </main>
       </>
     );
