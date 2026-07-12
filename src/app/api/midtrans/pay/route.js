@@ -14,9 +14,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
     }
 
+    // Ambil transaksi dari DB (termasuk redirect_url yang tersimpan)
     const { data: tx, error: txError } = await supabaseServer
       .from('transactions')
-      .select('id, game_id, amount, status, user_id')
+      .select('id, game_id, amount, status, user_id, redirect_url')
       .eq('id', orderId)
       .single();
 
@@ -40,11 +41,12 @@ export async function POST(request) {
     }
 
     const authString = Buffer.from(`${serverKey}:`).toString('base64');
+
+    // 1. Cek status Midtrans dulu
     const statusUrl = isProduction
       ? `https://api.midtrans.com/v2/${orderId}/status`
       : `https://api.sandbox.midtrans.com/v2/${orderId}/status`;
 
-    // 1. Cek status Midtrans
     let midtransStatus = null;
     try {
       const statusRes = await fetch(statusUrl, {
@@ -69,7 +71,15 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // 3. Masih pending → panggil Snap API dengan order_id yang sama untuk dapat link pembayaran baru
+    // 3. Masih pending → return redirect_url yang sudah disimpan
+    if (tx.redirect_url) {
+      return NextResponse.json({
+        success: true,
+        redirect_url: tx.redirect_url,
+      });
+    }
+
+    // 4. Fallback: redirect_url belum tersimpan (transaksi lama) → buat Snap token baru
     const { data: game } = await supabaseServer
       .from('games')
       .select('title')
@@ -114,9 +124,16 @@ export async function POST(request) {
     if (!snapRes.ok) {
       console.error('Snap retry error:', snapData);
       return NextResponse.json({
-        error: snapData.message || 'Gagal membuat link pembayaran. Silakan coba lagi.',
-      }, { status: snapRes.status });
+        error: 'Pembayaran kedaluwarsa. Silakan buat pesanan baru dari halaman game.',
+        expired: true,
+      }, { status: 400 });
     }
+
+    // Simpan redirect_url baru ke DB
+    await supabaseServer
+      .from('transactions')
+      .update({ redirect_url: snapData.redirect_url })
+      .eq('id', tx.id);
 
     return NextResponse.json({
       success: true,

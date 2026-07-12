@@ -89,6 +89,12 @@ export async function POST(request) {
       return NextResponse.json({ error: midtransData.message || 'Failed to generate payment link' }, { status: midtransRes.status });
     }
 
+    // Simpan redirect_url ke DB supaya bisa dipakai ulang saat "Lanjut Bayar"
+    await supabaseServer
+      .from('transactions')
+      .update({ redirect_url: midtransData.redirect_url })
+      .eq('id', transactionId);
+
     return NextResponse.json({
       success: true,
       redirect_url: midtransData.redirect_url,
