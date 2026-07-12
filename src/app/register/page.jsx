@@ -58,15 +58,18 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      console.error('SignUp error:', error);
-      const msg = error.message || error.error_description || JSON.stringify(error);
+      console.error('SignUp error:', JSON.stringify(error));
+      const raw = typeof error === 'string' ? error : (error.message || error.error_description || error.msg || '');
+      const msg = raw || JSON.stringify(error);
       if (msg.includes('rate limit') || msg.includes('email')) {
         setError('Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.');
         setCooldown(60);
       } else if (msg.includes('already registered') || msg.includes('already been registered')) {
         setError('Email sudah terdaftar. Silakan login atau gunakan email lain.');
-      } else {
+      } else if (msg) {
         setError(msg);
+      } else {
+        setError('Terjadi kesalahan. Silakan coba lagi.');
       }
       setLoading(false);
     } else {
