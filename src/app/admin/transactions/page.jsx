@@ -131,6 +131,7 @@ export default function TransactionsComponent() {
   ];
 
   const handleExportCSV = () => {
+    const escapeCSV = (cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`;
     const headers = ['Order ID', 'Game', 'User Email', 'Amount', 'Status', 'Date'];
     const rows = filtered.map(tx => [
       tx.id,
@@ -141,8 +142,8 @@ export default function TransactionsComponent() {
       new Date(tx.created_at).toLocaleString('id-ID'),
     ]);
 
-    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csvContent = [headers, ...rows].map(row => row.map(escapeCSV).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -161,7 +162,7 @@ export default function TransactionsComponent() {
               <h1 className="font-headline-lg text-headline-lg text-on-surface">Transaction Management</h1>
               <p className="font-body-md text-body-md text-on-surface-variant mt-1">Review and manage all player microtransactions.</p>
             </div>
-            <button onClick={handleExportCSV} className="flex items-center gap-2 bg-white border border-outline-variant text-on-surface px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+            <button onClick={handleExportCSV} className="flex items-center gap-2 bg-surface border border-outline-variant text-on-surface px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
               <span className="material-symbols-outlined text-[18px]">download</span>
               Export CSV
             </button>

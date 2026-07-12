@@ -1,6 +1,5 @@
 "use client"
 import React, { useEffect, useState, useRef } from 'react';
-import { supabase } from '@/lib/supabaseClient';
 import { adminFetch } from '@/lib/adminFetch';
 
 export default function PromotionsComponent() {
@@ -111,24 +110,22 @@ export default function PromotionsComponent() {
       };
 
       if (modalMode === 'create') {
-        const res = await adminFetch('/api/admin/crud', {
-          method: 'POST',
-          body: JSON.stringify({ table: 'promotions', data: payload })
-        });
-        if (!res.ok) throw new Error('Failed to create');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to create');
       } else {
         const res = await adminFetch('/api/admin/crud', {
           method: 'PUT',
           body: JSON.stringify({ table: 'promotions', id: formData.id, data: payload })
         });
-        if (!res.ok) throw new Error('Failed to update');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to update');
       }
 
       await fetchPromotions();
       closeModal();
     } catch (err) {
       console.error('Error saving promotion:', err);
-      alert('Error saving promotion');
+      alert(err.message || 'Error saving promotion');
     } finally {
       setSaving(false);
     }
@@ -141,12 +138,13 @@ export default function PromotionsComponent() {
       const res = await adminFetch(`/api/admin/crud?table=promotions&id=${itemToDelete.id}`, {
         method: 'DELETE'
       });
-      if (!res.ok) throw new Error('Failed to delete');
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to delete');
       await fetchPromotions();
       closeDeleteModal();
     } catch (err) {
       console.error('Error deleting promotion:', err);
-      alert('Error deleting promotion');
+      alert(err.message || 'Error deleting promotion');
     } finally {
       setDeleting(false);
     }

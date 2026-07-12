@@ -53,7 +53,7 @@ export async function verifyUserOrAdmin(request, targetUserId) {
 }
 
 // Allowed tables for CRUD operations
-export const ALLOWED_TABLES = ['games', 'users', 'promotions', 'content', 'game_items'];
+export const ALLOWED_TABLES = ['games', 'users', 'promotions', 'content', 'game_items', 'transactions'];
 
 // Validate table parameter
 export function validateTable(table) {

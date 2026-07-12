@@ -78,7 +78,7 @@ export default function Navbar() {
         <div className="hidden md:flex flex-1 max-w-md mx-4 relative group" ref={searchRef}>
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
           <input 
-            className="w-full bg-white/50 border border-outline-variant/30 text-on-surface placeholder-on-surface-variant/70 rounded-full py-2 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all backdrop-blur-md font-body-md text-body-md" 
+            className="w-full bg-surface-container/50 border border-outline-variant/30 text-on-surface placeholder-on-surface-variant/70 rounded-full py-2 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all backdrop-blur-md font-body-md text-body-md"
             placeholder="Search games, vouchers..." 
             type="text" 
             value={searchQuery}

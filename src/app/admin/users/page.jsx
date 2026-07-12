@@ -162,11 +162,12 @@ export default function UsersComponent() {
       if (modalMode === 'create') {
         payload.email = formData.email;
         payload.password = formData.password;
-        const res = await adminFetch('/api/admin/crud', { method: 'POST', body: JSON.stringify({ table: 'users', data: payload }) });
-        if (!res.ok) throw new Error('Failed to create user');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to create user');
       } else {
         const res = await adminFetch('/api/admin/crud', { method: 'PUT', body: JSON.stringify({ table: 'users', id: formData.id, data: payload }) });
-        if (!res.ok) throw new Error('Failed to update user');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to update user');
       }
       await fetchUsers();
       closeModal();
@@ -182,11 +183,12 @@ export default function UsersComponent() {
     setDeleting(true);
     try {
       const res = await adminFetch(`/api/admin/crud?table=users&id=${itemToDelete.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to delete');
       await fetchUsers();
       closeDeleteModal();
     } catch (err) {
-      alert('Error deleting user');
+      alert(err.message || 'Error deleting user');
     } finally {
       setDeleting(false);
     }

@@ -3,19 +3,27 @@ import React, { useState, useEffect } from 'react';
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState('light');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('theme') || 'light';
-    setTheme(saved);
-    document.documentElement.className = saved;
+    const saved = localStorage.getItem('nexuspay-theme');
+    if (saved === 'dark' || saved === 'light') {
+      setTheme(saved);
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(saved);
+    }
+    setMounted(true);
   }, []);
 
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light';
     setTheme(next);
-    localStorage.setItem('theme', next);
-    document.documentElement.className = next;
+    localStorage.setItem('nexuspay-theme', next);
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(next);
   };
+
+  if (!mounted) return null;
 
   return (
     <button

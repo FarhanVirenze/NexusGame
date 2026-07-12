@@ -135,16 +135,16 @@ export default function GameDetail() {
       try {
         setLoading(true);
         // Fetch game details
-        const gameRes = await fetch(`/api/admin/data?table=games`);
+        const gameRes = await fetch('/api/public/games');
         const gamesData = await gameRes.json();
-        const currentGame = gamesData.find(g => g.id === id);
+        const currentGame = Array.isArray(gamesData) ? gamesData.find(g => g.id === id) : null;
         
         if (currentGame) {
           setGame(currentGame);
         }
 
         // Fetch game items
-        const itemsRes = await fetch(`/api/admin/data?table=game_items&game_id=${id}`);
+        const itemsRes = await fetch(`/api/public/games?game_id=${id}`);
         let itemsData = await itemsRes.json();
         
         // Manual filter if needed

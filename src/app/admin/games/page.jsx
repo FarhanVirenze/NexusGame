@@ -156,20 +156,22 @@ export default function GamesComponent() {
           method: 'POST',
           body: JSON.stringify({ table: 'games', data: payload })
         });
-        if (!res.ok) throw new Error('Failed to create');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to create');
       } else {
         const res = await adminFetch('/api/admin/crud', {
           method: 'PUT',
           body: JSON.stringify({ table: 'games', id: formData.id, data: payload })
         });
-        if (!res.ok) throw new Error('Failed to update');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to update');
       }
 
       await fetchGames();
       closeModal();
     } catch (err) {
       console.error('Error saving game:', err);
-      alert('Error saving game');
+      alert(err.message || 'Error saving game');
     } finally {
       setSaving(false);
     }
@@ -182,12 +184,13 @@ export default function GamesComponent() {
       const res = await adminFetch(`/api/admin/crud?table=games&id=${itemToDelete.id}`, {
         method: 'DELETE'
       });
-      if (!res.ok) throw new Error('Failed to delete');
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to delete');
       await fetchGames();
       closeDeleteModal();
     } catch (err) {
       console.error('Error deleting game:', err);
-      alert('Error deleting game');
+      alert(err.message || 'Error deleting game');
     } finally {
       setDeleting(false);
     }

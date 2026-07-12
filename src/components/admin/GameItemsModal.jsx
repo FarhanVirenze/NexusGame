@@ -74,19 +74,21 @@ export default function GameItemsModal({ game, onClose }) {
           method: 'POST',
           body: JSON.stringify({ table: 'game_items', data: payload })
         });
-        if (!res.ok) throw new Error('Failed to create item');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to create item');
       } else {
         const res = await adminFetch('/api/admin/crud', {
           method: 'PUT',
           body: JSON.stringify({ table: 'game_items', id: formData.id, data: payload })
         });
-        if (!res.ok) throw new Error('Failed to update item');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to update item');
       }
       
       await fetchItems();
       setShowForm(false);
     } catch (err) {
-      alert('Error saving item');
+      alert(err.message || 'Error saving item');
     } finally {
       setSaving(false);
     }

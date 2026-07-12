@@ -1,6 +1,5 @@
 "use client"
 import React, { useEffect, useState, useRef } from 'react';
-import { supabase } from '@/lib/supabaseClient';
 import { adminFetch } from '@/lib/adminFetch';
 
 export default function ContentComponent() {
@@ -111,24 +110,22 @@ export default function ContentComponent() {
       };
 
       if (modalMode === 'create') {
-        const res = await adminFetch('/api/admin/crud', {
-          method: 'POST',
-          body: JSON.stringify({ table: 'content', data: payload })
-        });
-        if (!res.ok) throw new Error('Failed to create');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to create');
       } else {
         const res = await adminFetch('/api/admin/crud', {
           method: 'PUT',
           body: JSON.stringify({ table: 'content', id: formData.id, data: payload })
         });
-        if (!res.ok) throw new Error('Failed to update');
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to update');
       }
 
       await fetchNews();
       closeModal();
     } catch (err) {
       console.error('Error saving news:', err);
-      alert('Error saving news');
+      alert(err.message || 'Error saving news');
     } finally {
       setSaving(false);
     }
@@ -141,12 +138,13 @@ export default function ContentComponent() {
       const res = await adminFetch(`/api/admin/crud?table=content&id=${itemToDelete.id}`, {
         method: 'DELETE'
       });
-      if (!res.ok) throw new Error('Failed to delete');
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to delete');
       await fetchNews();
       closeDeleteModal();
     } catch (err) {
       console.error('Error deleting news:', err);
-      alert('Error deleting news');
+      alert(err.message || 'Error deleting news');
     } finally {
       setDeleting(false);
     }
