@@ -88,19 +88,15 @@ export default function HistoryComponent() {
       const data = await res.json();
 
       if (res.ok && data.redirect_url) {
-        if (data.new_order) {
-          // Refresh list to show new transaction
-          const refreshed = await fetch(`/api/transactions?user_id=${session.user.id}`, {
-            headers: { 'Authorization': `Bearer ${session.access_token}` }
-          });
-          const refreshedResult = await refreshed.json();
-          if (refreshed.ok && refreshedResult.data) {
-            setTxList(refreshedResult.data);
-          }
-        }
         window.location.href = data.redirect_url;
       } else {
-        alert(data.error || 'Gagal membuat link pembayaran. Silakan buat pesanan baru.');
+        if (data.expired) {
+          if (confirm(data.error || 'Pembayaran kedaluwarsa. Buat pesanan baru?')) {
+            window.location.href = `/game/${tx.game_id}`;
+          }
+        } else {
+          alert(data.error || 'Gagal membuat link pembayaran. Silakan coba lagi.');
+        }
         setPayingId(null);
       }
     } catch (e) {

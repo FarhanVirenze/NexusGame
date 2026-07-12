@@ -77,7 +77,10 @@ export async function GET(request) {
 
     const { error: dbError } = await supabaseServer
       .from('transactions')
-      .update({ status: newStatus })
+      .update({
+        status: newStatus,
+        payment_method: data.payment_type || null,
+      })
       .eq('id', orderId);
 
     if (dbError) {

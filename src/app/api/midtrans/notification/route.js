@@ -72,7 +72,10 @@ export async function POST(request) {
 
     const { error } = await supabaseServer
       .from('transactions')
-      .update({ status: newStatus })
+      .update({
+        status: newStatus,
+        payment_method: payment_type || null,
+      })
       .eq('id', order_id);
 
     if (error) {

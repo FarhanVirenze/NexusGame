@@ -21,7 +21,7 @@ export async function POST(request) {
       .single();
 
     if (txError || !tx) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Transaksi tidak ditemukan' }, { status: 404 });
     }
 
     if (tx.user_id !== auth.user.id && auth.user.role !== 'admin') {
@@ -29,7 +29,7 @@ export async function POST(request) {
     }
 
     if (tx.status !== 'pending') {
-      return NextResponse.json({ error: 'Transaction is not pending' }, { status: 400 });
+      return NextResponse.json({ error: 'Transaksi sudah tidak pending' }, { status: 400 });
     }
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
@@ -40,14 +40,11 @@ export async function POST(request) {
     }
 
     const authString = Buffer.from(`${serverKey}:`).toString('base64');
-    const midtransApiUrl = isProduction
-      ? 'https://api.midtrans.com/snap/v1/transactions'
-      : 'https://api.sandbox.midtrans.com/snap/v1/transactions';
     const statusUrl = isProduction
       ? `https://api.midtrans.com/v2/${orderId}/status`
       : `https://api.sandbox.midtrans.com/v2/${orderId}/status`;
 
-    // 1. Check Midtrans status
+    // 1. Cek status Midtrans
     let midtransStatus = null;
     try {
       const statusRes = await fetch(statusUrl, {
@@ -61,17 +58,18 @@ export async function POST(request) {
     }
 
     const txStatus = midtransStatus?.transaction_status;
-    const isExpired = ['expire', 'cancel', 'deny'].includes(txStatus);
 
-    // 2. If expired/cancelled/denied → mark DB + create new order
-    if (isExpired) {
+    // 2. Kalau expired/cancelled/denied → update DB, kasih error
+    if (['expire', 'cancel', 'deny'].includes(txStatus)) {
       const mappedStatus = txStatus === 'expire' ? 'expired' : 'failed';
       await supabaseServer.from('transactions').update({ status: mappedStatus }).eq('id', orderId);
-
-      return await createNewOrder(tx, auth.user, serverKey, authString, midtransApiUrl);
+      return NextResponse.json({
+        error: 'Pembayaran sudah kedaluwarsa. Silakan buat pesanan baru dari halaman game.',
+        expired: true,
+      }, { status: 400 });
     }
 
-    // 3. Still pending (or status unknown) → try Snap for same order first
+    // 3. Masih pending → panggil Snap API dengan order_id yang sama untuk dapat link pembayaran baru
     const { data: game } = await supabaseServer
       .from('games')
       .select('title')
@@ -79,10 +77,13 @@ export async function POST(request) {
       .single();
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const midtransApiUrl = isProduction
+      ? 'https://api.midtrans.com/snap/v1/transactions'
+      : 'https://api.sandbox.midtrans.com/snap/v1/transactions';
 
-    const buildPayload = (newOrderId) => ({
+    const payload = {
       transaction_details: {
-        order_id: newOrderId,
+        order_id: tx.id,
         gross_amount: tx.amount,
       },
       item_details: [{
@@ -97,100 +98,33 @@ export async function POST(request) {
       callbacks: {
         finish: `${siteUrl}/order/success`,
       },
-    });
+    };
 
-    // Try Snap with same order_id (works if still pending)
     const snapRes = await fetch(midtransApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Basic ${authString}`,
       },
-      body: JSON.stringify(buildPayload(tx.id)),
+      body: JSON.stringify(payload),
     });
 
-    if (snapRes.ok) {
-      const snapData = await snapRes.json();
-      return NextResponse.json({ success: true, redirect_url: snapData.redirect_url });
+    const snapData = await snapRes.json();
+
+    if (!snapRes.ok) {
+      console.error('Snap retry error:', snapData);
+      return NextResponse.json({
+        error: snapData.message || 'Gagal membuat link pembayaran. Silakan coba lagi.',
+      }, { status: snapRes.status });
     }
 
-    // 4. Snap failed → likely expired but status check didn't catch it → clone
-    const snapErr = await snapRes.json().catch(() => ({}));
-    console.warn('Snap failed, cloning order. Error:', snapErr);
-    return await createNewOrder(tx, auth.user, serverKey, authString, midtransApiUrl);
+    return NextResponse.json({
+      success: true,
+      redirect_url: snapData.redirect_url,
+    });
 
   } catch (error) {
     console.error('Pay error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
-
-async function createNewOrder(tx, user, serverKey, authString, midtransApiUrl) {
-  const newTxId = crypto.randomUUID();
-
-  const { data: game } = await supabaseServer
-    .from('games')
-    .select('title')
-    .eq('id', tx.game_id)
-    .single();
-
-  const { error: insertErr } = await supabaseServer
-    .from('transactions')
-    .insert({
-      id: newTxId,
-      user_id: tx.user_id,
-      game_id: tx.game_id,
-      amount: tx.amount,
-      status: 'pending',
-    });
-
-  if (insertErr) {
-    console.error('Clone tx error:', insertErr);
-    return NextResponse.json({ error: 'Gagal membuat transaksi baru' }, { status: 500 });
-  }
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
-  const payload = {
-    transaction_details: {
-      order_id: newTxId,
-      gross_amount: tx.amount,
-    },
-    item_details: [{
-      id: tx.game_id,
-      name: `Top Up ${game?.title || 'Game'}`,
-      price: tx.amount,
-      quantity: 1,
-    }],
-    customer: {
-      email: user.email || 'guest@nexusgame.com',
-    },
-    callbacks: {
-      finish: `${siteUrl}/order/success`,
-    },
-  };
-
-  const snapRes = await fetch(midtransApiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Basic ${authString}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const snapData = await snapRes.json();
-
-  if (!snapRes.ok) {
-    console.error('Clone snap error:', snapData);
-    return NextResponse.json({
-      error: 'Link pembayaran kedaluwarsa. Silakan buat pesanan baru dari halaman game.',
-    }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    success: true,
-    redirect_url: snapData.redirect_url,
-    new_order: true,
-  });
 }

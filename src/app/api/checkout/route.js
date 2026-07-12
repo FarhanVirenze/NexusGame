@@ -9,7 +9,7 @@ export async function POST(request) {
     if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const body = await request.json();
-    const { gameId, itemName, price, playerInfo, userEmail } = body;
+    const { gameId, itemName, price, playerInfo, userEmail, itemId } = body;
 
     // Use server-verified userId, not client-provided
     const userId = auth.user.id;
@@ -34,8 +34,10 @@ export async function POST(request) {
         id: transactionId,
         user_id: userId,
         game_id: gameId,
+        item_id: itemId || null,
         amount: price,
-        status: 'pending'
+        status: 'pending',
+        player_info: playerInfo || null,
       });
 
     if (dbError) {
