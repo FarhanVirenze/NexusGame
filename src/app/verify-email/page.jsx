@@ -258,7 +258,6 @@ export default function VerifyEmailPage() {
         />
 
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/70"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-transparent w-1/4"></div>
 
         <div className="absolute top-[15%] right-[10%] w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/30 flex items-center justify-center animate-bounce shadow-lg" style={{ animationDuration: '3s' }}>
           <span className="material-symbols-outlined text-white drop-shadow text-2xl">diamond</span>
