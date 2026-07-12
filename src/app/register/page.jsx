@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function RegisterPage() {
@@ -14,6 +14,14 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -21,6 +29,7 @@ export default function RegisterPage() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (cooldown > 0) return;
     setLoading(true);
     setError('');
 
@@ -49,7 +58,16 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      setError(error.message);
+      console.error('SignUp error:', error);
+      const msg = error.message || error.error_description || JSON.stringify(error);
+      if (msg.includes('rate limit') || msg.includes('email')) {
+        setError('Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.');
+        setCooldown(60);
+      } else if (msg.includes('already registered') || msg.includes('already been registered')) {
+        setError('Email sudah terdaftar. Silakan login atau gunakan email lain.');
+      } else {
+        setError(msg);
+      }
       setLoading(false);
     } else {
       if (data.user && !data.session) {
@@ -180,10 +198,16 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || cooldown > 0}
               className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary text-sm font-semibold px-4 py-2 rounded-lg hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center mt-1"
             >
-              {loading ? <span className="material-symbols-outlined animate-spin text-base">progress_activity</span> : "Create Account"}
+              {loading ? (
+                <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
+              ) : cooldown > 0 ? (
+                `Tunggu ${cooldown}s`
+              ) : (
+                "Create Account"
+              )}
             </button>
           </form>
 
