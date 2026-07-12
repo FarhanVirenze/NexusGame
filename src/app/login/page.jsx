@@ -56,15 +56,13 @@ export default function LoginPage() {
       {/* Left side: Form */}
       <div className="w-full md:w-[480px] lg:w-[520px] flex flex-col justify-center px-8 md:px-14 lg:px-20 py-12 relative z-10">
         <a className="inline-flex items-center gap-2.5 shrink-0 mb-14 block" href="/">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center shadow-lg shadow-primary/30">
-            <span className="material-symbols-outlined text-white text-[22px]">sports_esports</span>
-          </div>
+          <img src="/images/logonexus.png" alt="NexusPay" className="w-10 h-10 rounded-xl object-contain" />
           <span className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">NexusPay</span>
         </a>
 
         <div className="w-full max-w-[400px] mx-auto">
           <div className="mb-10">
-            <h1 className="font-display-lg text-[32px] md:text-[36px] text-on-surface mb-3 leading-tight">Welcome<br/>Back</h1>
+            <h1 className="font-display-lg text-[32px] md:text-[36px] text-on-surface mb-3 leading-tight">Sign<br/>In</h1>
             <p className="font-body-lg text-body-lg text-on-surface-variant">Sign in to continue your top-up</p>
           </div>
 
@@ -134,61 +132,63 @@ export default function LoginPage() {
       </div>
 
       {/* Right side: Decorative */}
-      <div className="hidden md:flex flex-1 relative overflow-hidden bg-gradient-to-br from-primary/5 via-surface to-primary/10">
-        {/* Background image */}
+      <div className="hidden md:flex flex-1 relative overflow-hidden">
+        {/* Background image - full opacity */}
         <img
           src="/images/ml.png"
           alt=""
-          className="absolute inset-0 w-full h-full object-cover opacity-60"
+          className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/30 to-transparent"></div>
+        {/* Bottom gradient only - to blend into background */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent"></div>
+
+        {/* Left edge gradient - to blend with form side */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-transparent w-1/3"></div>
 
         {/* Floating decorative elements */}
-        <div className="absolute top-[15%] right-[12%] w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '3s' }}>
-          <span className="material-symbols-outlined text-white/70 text-3xl">diamond</span>
+        <div className="absolute top-[15%] right-[10%] w-16 h-16 rounded-2xl bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '3s' }}>
+          <span className="material-symbols-outlined text-white text-3xl">diamond</span>
         </div>
-        <div className="absolute top-[35%] right-[6%] w-14 h-14 rounded-xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '4s', animationDelay: '0.5s' }}>
-          <span className="material-symbols-outlined text-white/70 text-2xl">inventory_2</span>
+        <div className="absolute top-[38%] right-[4%] w-12 h-12 rounded-xl bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '4s', animationDelay: '0.5s' }}>
+          <span className="material-symbols-outlined text-white text-2xl">inventory_2</span>
         </div>
-        <div className="absolute bottom-[30%] right-[15%] w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '1s' }}>
-          <span className="material-symbols-outlined text-white/70 text-[28px]">sports_esports</span>
+        <div className="absolute bottom-[32%] right-[12%] w-14 h-14 rounded-2xl bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '1s' }}>
+          <span className="material-symbols-outlined text-white text-[28px]">sports_esports</span>
         </div>
-        <div className="absolute top-[60%] right-[4%] w-12 h-12 rounded-xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '4.5s', animationDelay: '1.5s' }}>
-          <span className="material-symbols-outlined text-white/60 text-xl">payment</span>
+        <div className="absolute top-[62%] right-[3%] w-11 h-11 rounded-xl bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '4.5s', animationDelay: '1.5s' }}>
+          <span className="material-symbols-outlined text-white text-xl">payments</span>
         </div>
 
         {/* Main content overlay */}
         <div className="relative z-10 flex flex-col justify-end p-12 lg:p-16 max-w-xl">
           <div className="space-y-4 mb-8">
-            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-xl border border-white/20 text-white px-4 py-2 rounded-full text-sm font-label-md">
+            <div className="inline-flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-full text-sm font-label-md">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
               Trusted top up platform
             </div>
-            <h2 className="font-display-lg text-[40px] lg:text-[48px] text-on-surface leading-[1.1]">
+            <h2 className="font-display-lg text-[40px] lg:text-[48px] text-white leading-[1.1] drop-shadow-lg">
               Top Up Game<br/>
-              <span className="text-primary"> Favoritmu</span>
+              <span className="text-primary-container">Favoritmu</span>
             </h2>
-            <p className="font-body-lg text-on-surface-variant max-w-md">
+            <p className="font-body-lg text-white/80 max-w-md drop-shadow">
               Cepat, aman, dan terpercaya. Tersedia untuk semua game populer.
             </p>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl px-5 py-3">
-              <span className="material-symbols-outlined text-primary text-xl">bolt</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 bg-black/25 backdrop-blur-md border border-white/15 rounded-2xl px-5 py-3">
+              <span className="material-symbols-outlined text-primary-container text-xl">bolt</span>
               <div>
-                <p className="text-on-surface font-label-md text-sm font-semibold">Instant</p>
-                <p className="text-on-surface-variant font-caption text-xs">Auto process</p>
+                <p className="text-white font-label-md text-sm font-semibold">Instant</p>
+                <p className="text-white/70 font-caption text-xs">Auto process</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl px-5 py-3">
-              <span className="material-symbols-outlined text-primary text-xl">verified_user</span>
+            <div className="flex items-center gap-3 bg-black/25 backdrop-blur-md border border-white/15 rounded-2xl px-5 py-3">
+              <span className="material-symbols-outlined text-primary-container text-xl">verified_user</span>
               <div>
-                <p className="text-on-surface font-label-md text-sm font-semibold">Secure</p>
-                <p className="text-on-surface-variant font-caption text-xs">100% safe</p>
+                <p className="text-white font-label-md text-sm font-semibold">Secure</p>
+                <p className="text-white/70 font-caption text-xs">100% safe</p>
               </div>
             </div>
           </div>
