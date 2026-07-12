@@ -1,5 +1,6 @@
 "use client"
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { useSearchParams } from 'next/navigation';
 
 export default function VerifyEmailPage() {
@@ -41,18 +42,12 @@ export default function VerifyEmailPage() {
   const sendOTP = async () => {
     setSending(true);
     setError('');
-    try {
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Gagal mengirim kode OTP');
-      }
-    } catch (err) {
-      setError('Gagal mengirim kode OTP');
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    if (error) {
+      setError(error.message || 'Gagal mengirim kode OTP');
     }
     setSending(false);
   };
@@ -109,30 +104,22 @@ export default function VerifyEmailPage() {
     setLoading(true);
     setError('');
 
-    try {
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otpCode: code }),
-      });
-      const data = await res.json();
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: 'email',
+    });
 
-      if (!res.ok) {
-        setError(data.error || 'Kode verifikasi salah atau kadaluarsa.');
-        setOtp(['', '', '', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
-        setLoading(false);
-      } else {
-        setSuccess(true);
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 1500);
-      }
-    } catch (err) {
-      setError('Terjadi kesalahan. Coba lagi.');
+    if (error) {
+      setError('Kode verifikasi salah atau kadaluarsa.');
       setOtp(['', '', '', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
       setLoading(false);
+    } else {
+      setSuccess(true);
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1500);
     }
   }, [email]);
 
@@ -143,21 +130,13 @@ export default function VerifyEmailPage() {
     setResendCooldown(60);
     setError('');
 
-    try {
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
 
-      if (!res.ok) {
-        setError(data.error || 'Gagal mengirim ulang kode. Coba lagi nanti.');
-        setCanResend(true);
-        setResendCooldown(0);
-      }
-    } catch (err) {
-      setError('Gagal mengirim ulang kode.');
+    if (error) {
+      setError(error.message || 'Gagal mengirim ulang kode. Coba lagi nanti.');
       setCanResend(true);
       setResendCooldown(0);
     }
