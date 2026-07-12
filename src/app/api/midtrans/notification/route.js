@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import crypto from 'crypto';
+import { createOrder, getSkuForItem } from '@/lib/celestial';
 
 // Midtrans will call this endpoint when payment status changes
 // URL: https://yourdomain.com/api/midtrans/notification
@@ -84,10 +85,124 @@ export async function POST(request) {
     }
 
     console.log(`[Midtrans Notification] Order ${order_id} updated to: ${newStatus}`);
+
+    if (newStatus === 'completed') {
+      processCelestialOrder(order_id).catch(err => {
+        console.error('[Midtrans Notification] Celestial order failed:', err);
+      });
+    }
+
     return NextResponse.json({ success: true });
 
   } catch (error) {
     console.error('[Midtrans Notification] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+async function processCelestialOrder(transactionId) {
+  console.log(`[Celestial] Processing order for transaction: ${transactionId}`);
+
+  const { data: transaction, error: fetchError } = await supabaseServer
+    .from('transactions')
+    .select('*, game_items(name, sku)')
+    .eq('id', transactionId)
+    .single();
+
+  if (fetchError || !transaction) {
+    console.error('[Celestial] Transaction not found:', transactionId);
+    return;
+  }
+
+  if (!transaction.player_info) {
+    console.error('[Celestial] No player_info for transaction:', transactionId);
+    await supabaseServer
+      .from('transactions')
+      .update({ fulfillment_status: 'failed', delivery_sn: 'No player info provided' })
+      .eq('id', transactionId);
+    return;
+  }
+
+  const playerMatch = transaction.player_info.match(/^(\d+)\s*(?:\((\d+)\))?\s*-\s*(.+)$/);
+  if (!playerMatch) {
+    console.error('[Celestial] Cannot parse player_info:', transaction.player_info);
+    await supabaseServer
+      .from('transactions')
+      .update({ fulfillment_status: 'failed', delivery_sn: 'Cannot parse player info' })
+      .eq('id', transactionId);
+    return;
+  }
+
+  const userId = playerMatch[1];
+  const zoneId = playerMatch[2] || null;
+
+  let sku = null;
+
+  if (transaction.game_items && transaction.game_items.sku) {
+    sku = transaction.game_items.sku;
+  }
+
+  if (!sku && transaction.item_id) {
+    const { data: item } = await supabaseServer
+      .from('game_items')
+      .select('name, sku')
+      .eq('id', transaction.item_id)
+      .single();
+
+    if (item) {
+      sku = item.sku || getSkuForItem(item.name);
+    }
+  }
+
+  if (!sku && transaction.player_info) {
+    sku = getSkuForItem(transaction.player_info);
+  }
+
+  if (!sku) {
+    console.error('[Celestial] No SKU found for transaction:', transactionId);
+    await supabaseServer
+      .from('transactions')
+      .update({ fulfillment_status: 'failed', delivery_sn: 'No SKU mapping found' })
+      .eq('id', transactionId);
+    return;
+  }
+
+  await supabaseServer
+    .from('transactions')
+    .update({ fulfillment_status: 'processing' })
+    .eq('id', transactionId);
+
+  const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/celestial/webhook`;
+
+  const result = await createOrder({
+    refId: transactionId,
+    sku,
+    target: userId,
+    zoneId,
+    callbackUrl,
+  });
+
+  console.log('[Celestial] Order result:', JSON.stringify(result, null, 2));
+
+  if (result.success && result.data) {
+    await supabaseServer
+      .from('transactions')
+      .update({
+        celestial_trx_id: result.data.trx_id,
+        fulfillment_status: 'processing',
+      })
+      .eq('id', transactionId);
+
+    console.log('[Celestial] Order created:', result.data.trx_id);
+  } else {
+    await supabaseServer
+      .from('transactions')
+      .update({
+        fulfillment_status: 'failed',
+        delivery_sn: result.message || 'Order failed',
+      })
+      .eq('id', transactionId);
+
+    console.error('[Celestial] Order failed:', result.message);
   }
 }

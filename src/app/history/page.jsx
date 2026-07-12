@@ -352,25 +352,40 @@ export default function HistoryComponent() {
               <span className="md:hidden font-caption text-caption text-on-surface-variant mr-2">Tanggal:</span>
               {new Date(tx.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
             </div>
-            <div className="col-span-1 md:col-span-2 flex items-center">
+            <div className="col-span-1 md:col-span-2 flex flex-col gap-1.5">
               {tx.status === 'completed' && (
-                <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full font-label-md text-[11px]">
+                <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full font-label-md text-[11px] w-fit">
                   <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Berhasil
                 </span>
               )}
               {tx.status === 'pending' && (
-                <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full font-label-md text-[11px]">
+                <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full font-label-md text-[11px] w-fit">
                   <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span> Pending
                 </span>
               )}
               {tx.status === 'expired' && (
-                <span className="inline-flex items-center gap-1.5 bg-gray-50 text-gray-600 border border-gray-200 px-3 py-1 rounded-full font-label-md text-[11px]">
+                <span className="inline-flex items-center gap-1.5 bg-gray-50 text-gray-600 border border-gray-200 px-3 py-1 rounded-full font-label-md text-[11px] w-fit">
                   <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span> Expired
                 </span>
               )}
               {tx.status === 'failed' && (
-                <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full font-label-md text-[11px]">
+                <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full font-label-md text-[11px] w-fit">
                   <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Gagal
+                </span>
+              )}
+              {tx.status === 'completed' && tx.fulfillment_status === 'processing' && (
+                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full font-label-md text-[11px] w-fit">
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span> Sedang Dikirim
+                </span>
+              )}
+              {tx.status === 'completed' && tx.fulfillment_status === 'completed' && (
+                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full font-label-md text-[11px] w-fit">
+                  <span className="material-symbols-outlined text-[12px]">check_circle</span> Diamond Masuk
+                </span>
+              )}
+              {tx.status === 'completed' && tx.fulfillment_status === 'failed' && (
+                <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 border border-orange-200 px-3 py-1 rounded-full font-label-md text-[11px] w-fit">
+                  <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span> Gagal Kirim
                 </span>
               )}
             </div>
