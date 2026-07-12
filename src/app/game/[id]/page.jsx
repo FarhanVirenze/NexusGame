@@ -117,8 +117,17 @@ export default function GameDetail() {
       const data = await res.json();
       
       if (res.ok && data.success) {
-        // Redirect to Midtrans Snap payment page
-        window.location.href = data.redirect_url;
+        if (data.snap_token && window.snap) {
+          window.snap.embed(data.snap_token, {
+            embedId: 'snap-container-game',
+            onSuccess: () => { window.location.href = '/history'; },
+            onPending: () => { window.location.href = '/history'; },
+            onError: (err) => { toast.error('Pembayaran gagal: ' + (err.message || 'Terjadi kesalahan')); setIsOrdering(false); },
+            onClose: () => { setIsOrdering(false); },
+          });
+        } else {
+          window.location.href = data.redirect_url;
+        }
       } else {
         toast.error('Checkout failed: ' + (data.error || 'Unknown error'));
         setIsOrdering(false);
@@ -532,6 +541,8 @@ export default function GameDetail() {
           </div>
         </div>
       </main>
+
+<div id="snap-container-game" style={{ minHeight: '600px' }}></div>
 
 <Footer />
     </>

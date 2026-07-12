@@ -140,8 +140,18 @@ export default function HistoryComponent() {
 
       const data = await res.json();
 
-      if (res.ok && data.redirect_url) {
-        window.location.href = data.redirect_url;
+      if (res.ok && (data.snap_token || data.redirect_url)) {
+        if (data.snap_token && window.snap) {
+          window.snap.embed(data.snap_token, {
+            embedId: 'snap-container-history',
+            onSuccess: () => { window.location.href = '/history'; },
+            onPending: () => { window.location.href = '/history'; },
+            onError: (err) => { alert('Pembayaran gagal. Silakan coba lagi.'); setPayingId(null); },
+            onClose: () => { setPayingId(null); },
+          });
+        } else {
+          window.location.href = data.redirect_url;
+        }
       } else {
         if (data.expired) {
           if (confirm(data.error || 'Pembayaran kedaluwarsa. Buat pesanan baru?')) {
@@ -419,6 +429,8 @@ export default function HistoryComponent() {
   )}
 </section>
 </main>
+
+<div id="snap-container-history" style={{ minHeight: '600px' }}></div>
 
 <Footer />
 
