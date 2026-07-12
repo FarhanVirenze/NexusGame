@@ -13,6 +13,8 @@ export default function HistoryComponent() {
   const [payingId, setPayingId] = useState(null);
 
   useEffect(() => {
+    let pollingInterval;
+
     async function loadHistory() {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -33,7 +35,7 @@ export default function HistoryComponent() {
         // Sync pending transactions with Midtrans to get real status
         const pendingTxs = transactions.filter(tx => tx.status === 'pending');
         if (pendingTxs.length > 0) {
-          const syncPromises = pendingTxs.map(async (tx) => {
+          const syncResults = await Promise.all(pendingTxs.map(async (tx) => {
             try {
               const statusRes = await fetch(`/api/midtrans/status?id=${tx.id}`, {
                 headers: { 'Authorization': `Bearer ${session.access_token}` }
@@ -42,29 +44,80 @@ export default function HistoryComponent() {
               if (statusRes.ok && statusData.status) {
                 return { id: tx.id, newStatus: statusData.status };
               }
-            } catch (e) {
-              // Ignore sync errors for individual transactions
-            }
+            } catch (e) {}
             return null;
-          });
+          }));
           
-          const syncResults = await Promise.all(syncPromises);
           syncResults.forEach(result => {
             if (result) {
               const tx = transactions.find(t => t.id === result.id);
-              if (tx) {
-                tx.status = result.newStatus;
-              }
+              if (tx) tx.status = result.newStatus;
             }
           });
         }
 
         setTxList(transactions);
+        startPolling(transactions);
       }
 
       setLoading(false);
     }
+
+    function startPolling(currentList) {
+      if (pollingInterval) clearInterval(pollingInterval);
+
+      const hasPending = currentList.some(tx => tx.status === 'pending');
+      if (!hasPending) return;
+
+      pollingInterval = setInterval(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { clearInterval(pollingInterval); return; }
+
+        // Refetch all transactions
+        const res = await fetch(`/api/transactions?user_id=${session.user.id}`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        const result = await res.json();
+        if (!res.ok || !result.data) return;
+
+        const transactions = result.data;
+        const pendingTxs = transactions.filter(tx => tx.status === 'pending');
+
+        // Sync each pending tx with Midtrans
+        if (pendingTxs.length > 0) {
+          const syncResults = await Promise.all(pendingTxs.map(async (tx) => {
+            try {
+              const statusRes = await fetch(`/api/midtrans/status?id=${tx.id}`, {
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+              });
+              const statusData = await statusRes.json();
+              if (statusRes.ok && statusData.status) {
+                return { id: tx.id, newStatus: statusData.status };
+              }
+            } catch (e) {}
+            return null;
+          }));
+
+          syncResults.forEach(result => {
+            if (result) {
+              const tx = transactions.find(t => t.id === result.id);
+              if (tx) tx.status = result.newStatus;
+            }
+          });
+        }
+
+        setTxList(transactions);
+
+        // Stop polling if no more pending
+        if (pendingTxs.length === 0) {
+          clearInterval(pollingInterval);
+        }
+      }, 10000);
+    }
+
     loadHistory();
+
+    return () => { if (pollingInterval) clearInterval(pollingInterval); };
   }, []);
 
   async function handlePay(tx) {
