@@ -27,12 +27,12 @@ export default function HistoryComponent() {
       if (res.ok && result.data) {
         let transactions = result.data;
 
-        // Sync pending transactions with Xendit to get real status
+        // Sync pending transactions with Midtrans to get real status
         const pendingTxs = transactions.filter(tx => tx.status === 'pending');
         if (pendingTxs.length > 0) {
           const syncPromises = pendingTxs.map(async (tx) => {
             try {
-              const statusRes = await fetch(`/api/xendit/status?id=${tx.id}`);
+              const statusRes = await fetch(`/api/midtrans/status?id=${tx.id}`);
               const statusData = await statusRes.json();
               if (statusRes.ok && statusData.status) {
                 return { id: tx.id, newStatus: statusData.status, invoiceUrl: statusData.invoice_url };

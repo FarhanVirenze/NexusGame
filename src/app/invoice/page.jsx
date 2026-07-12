@@ -18,8 +18,8 @@ function InvoiceContent() {
         const res = await fetch(`/api/transactions?id=${transactionId}`);
         const result = await res.json();
 
-        // Fetch Xendit status for payment method info
-        const statusRes = await fetch(`/api/xendit/status?id=${transactionId}`);
+        // Fetch Midtrans status for payment method info
+        const statusRes = await fetch(`/api/midtrans/status?id=${transactionId}`);
         const statusData = await statusRes.json();
 
         if (res.ok && result.data) {

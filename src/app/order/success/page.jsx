@@ -19,9 +19,9 @@ function OrderSuccessContent() {
       }
 
       try {
-        // 1. First, sync the real status from Xendit
+        // 1. First, sync the real status from Midtrans
         setSyncing(true);
-        const statusRes = await fetch(`/api/xendit/status?id=${transactionId}`);
+        const statusRes = await fetch(`/api/midtrans/status?id=${transactionId}`);
         const statusData = await statusRes.json();
         setSyncing(false);
 
@@ -31,7 +31,7 @@ function OrderSuccessContent() {
           
         if (res.ok && result.data) {
           const data = result.data;
-          // Use the Xendit-synced status if available
+          // Use the Midtrans-synced status if available
           const currentStatus = statusData?.status || data.status;
           
           setOrderData({

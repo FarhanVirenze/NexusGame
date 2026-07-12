@@ -114,8 +114,8 @@ export default function GameDetail() {
       const data = await res.json();
       
       if (res.ok && data.success) {
-        // Redirect to Xendit Invoice URL
-        window.location.href = data.invoice_url;
+        // Redirect to Midtrans Snap payment page
+        window.location.href = data.redirect_url;
       } else {
         alert('Checkout failed: ' + (data.error || 'Unknown error'));
         setIsOrdering(false);

@@ -10,9 +10,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const xenditSecretKey = process.env.XENDIT_SECRET_KEY;
-    if (!xenditSecretKey) {
-      return NextResponse.json({ error: 'Xendit Secret Key not configured' }, { status: 500 });
+    const merchantId = process.env.MIDTRANS_MERCHANT_ID;
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+
+    if (!serverKey || !merchantId) {
+      return NextResponse.json({ error: 'Midtrans not configured' }, { status: 500 });
     }
 
     // 1. Create transaction in Supabase first (status: pending)
@@ -32,45 +35,55 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Failed to create transaction record' }, { status: 500 });
     }
 
-    // 2. Create Xendit Invoice
-    const xenditAuth = Buffer.from(`${xenditSecretKey}:`).toString('base64');
-    
+    // 2. Create Midtrans Snap transaction
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const midtransApiUrl = isProduction
+      ? 'https://api.midtrans.com/snap/v1/transactions'
+      : 'https://api.sandbox.midtrans.com/snap/v1/transactions';
+
+    const authString = Buffer.from(`${serverKey}:`).toString('base64');
 
     const payload = {
-      external_id: transactionId,
-      amount: price,
-      description: `Top Up ${itemName} - ${playerInfo}`,
-      invoice_duration: 3600, // 1 hour
-      customer: {
-        email: userEmail || 'guest@nexusgame.com'
+      transaction_details: {
+        order_id: transactionId,
+        gross_amount: price,
       },
-      success_redirect_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/order/success?id=${transactionId}`,
-      failure_redirect_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/game/${gameId}`
+      item_details: [{
+        id: gameId,
+        name: `Top Up ${itemName} - ${playerInfo}`,
+        price: price,
+        quantity: 1,
+      }],
+      customer: {
+        email: userEmail || 'guest@nexusgame.com',
+      },
+      callbacks: {
+        finish: `${siteUrl}/order/success`,
+      },
     };
 
-    const xenditRes = await fetch('https://api.xendit.co/v2/invoices', {
+    const midtransRes = await fetch(midtransApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${xenditAuth}`
+        'Authorization': `Basic ${authString}`,
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
-    const xenditData = await xenditRes.json();
+    const midtransData = await midtransRes.json();
 
-    if (!xenditRes.ok) {
-      console.error('Xendit error:', xenditData);
-      // We could update the transaction status to failed here
+    if (!midtransRes.ok) {
+      console.error('Midtrans error:', midtransData);
       await supabaseServer.from('transactions').update({ status: 'failed' }).eq('id', transactionId);
-      return NextResponse.json({ error: xenditData.message || 'Failed to generate payment link' }, { status: xenditRes.status });
+      return NextResponse.json({ error: midtransData.message || 'Failed to generate payment link' }, { status: midtransRes.status });
     }
 
-    // Return the invoice URL to redirect the user
+    // Return the Snap redirect URL to redirect the user
     return NextResponse.json({
       success: true,
-      invoice_url: xenditData.invoice_url,
-      transaction_id: transactionId
+      redirect_url: midtransData.redirect_url,
+      transaction_id: transactionId,
     });
 
   } catch (error) {
