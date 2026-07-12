@@ -1,7 +1,6 @@
 "use client"
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import Navbar from '@/components/Navbar';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -52,101 +51,96 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background">
+    <div className="h-screen flex flex-col md:flex-row bg-background overflow-hidden">
       {/* Left side: Form */}
-      <div className="w-full md:w-[480px] lg:w-[520px] flex flex-col justify-center px-8 md:px-14 lg:px-20 py-12 relative z-10">
-        <a className="inline-flex items-center gap-2.5 shrink-0 mb-14 block" href="/">
-          <img src="/images/logonexus.png" alt="NexusPay" className="w-10 h-10 rounded-xl object-contain" />
-          <span className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">NexusPay</span>
-        </a>
+      <div className="w-full md:w-[480px] lg:w-[520px] flex flex-col justify-center px-8 md:px-14 lg:px-20 relative z-10">
+        <div className="w-full max-w-[400px] mx-auto -mt-4">
+          <a className="inline-flex items-center gap-2 shrink-0 mb-8" href="/">
+            <img src="/images/logonexus.png" alt="NexusPay" className="w-8 h-8 rounded-lg object-contain" />
+            <span className="text-lg font-bold tracking-tight text-on-surface">NexusPay</span>
+          </a>
 
-        <div className="w-full max-w-[400px] mx-auto">
-          <div className="mb-10">
-            <h1 className="font-display-lg text-[32px] md:text-[36px] text-on-surface mb-3 leading-tight">Sign<br/>In</h1>
-            <p className="font-body-lg text-body-lg text-on-surface-variant">Sign in to continue your top-up</p>
+          <div className="mb-5">
+            <h1 className="text-[26px] text-on-surface mb-1 leading-tight font-bold">Sign In</h1>
+            <p className="text-sm text-on-surface-variant">Sign in to continue your top-up</p>
           </div>
 
           {error && (
-            <div className="bg-error/10 border border-error/20 text-error p-3.5 rounded-2xl mb-6 font-body-md text-sm flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[18px]">error</span>
+            <div className="bg-error/10 border border-error/20 text-error p-2.5 rounded-xl mb-4 text-xs flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px]">error</span>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleManualLogin} className="space-y-5">
-            <div className="space-y-2">
-              <label className="font-label-md text-label-md text-on-surface-variant pl-1">Email</label>
+          <form onSubmit={handleManualLogin} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-on-surface-variant pl-1">Email</label>
               <input
                 type="email"
                 required
-                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50 font-body-md"
+                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="font-label-md text-label-md text-on-surface-variant pl-1">Password</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-on-surface-variant pl-1">Password</label>
               <input
                 type="password"
                 required
-                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50 font-body-md"
+                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50"
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
-            <div className="flex justify-end">
-              <a href="/forgot-password" className="font-label-md text-primary hover:text-primary/80 text-sm transition-colors">Forgot password?</a>
+            <div className="flex justify-end -mb-0.5">
+              <a href="/forgot-password" className="text-xs text-primary hover:text-primary/80 transition-colors">Forgot password?</a>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary font-label-lg px-4 py-3.5 rounded-2xl hover:shadow-xl hover:shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center h-13 font-semibold"
+              className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary text-sm font-semibold px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center"
             >
-              {loading ? <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span> : "Sign In"}
+              {loading ? <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span> : "Sign In"}
             </button>
           </form>
 
-          <div className="my-7 flex items-center gap-4">
+          <div className="my-4 flex items-center gap-3">
             <div className="h-px bg-outline-variant/40 flex-1"></div>
-            <span className="font-label-sm text-on-surface-variant/70 text-xs uppercase tracking-widest">or</span>
+            <span className="text-[10px] text-on-surface-variant/70 uppercase tracking-widest">or</span>
             <div className="h-px bg-outline-variant/40 flex-1"></div>
           </div>
 
           <button
             onClick={handleGoogleLogin}
-            className="w-full bg-surface-container-lowest/60 border border-outline-variant/30 text-on-surface font-label-lg px-4 py-3.5 rounded-2xl flex items-center justify-center gap-3 hover:bg-surface-container-high/60 hover:border-outline-variant/50 transition-all"
+            className="w-full bg-surface-container-lowest/60 border border-outline-variant/30 text-on-surface text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2.5 hover:bg-surface-container-high/60 hover:border-outline-variant/50 transition-all"
           >
-            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
             Continue with Google
           </button>
 
-          <p className="mt-10 text-center font-body-md text-on-surface-variant text-sm">
-            Don't have an account? <a href="/register" className="text-primary hover:text-primary/80 font-semibold transition-colors">Sign up</a>
+          <p className="mt-5 text-center text-xs text-on-surface-variant">
+            Don&apos;t have an account? <a href="/register" className="text-primary hover:text-primary/80 font-semibold transition-colors">Sign up</a>
           </p>
         </div>
       </div>
 
       {/* Right side: Decorative */}
       <div className="hidden md:flex flex-1 relative overflow-hidden">
-        {/* Background image - full opacity */}
         <img
           src="/images/ml.png"
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Bottom gradient only - to blend into background */}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent"></div>
-
-        {/* Left edge gradient - to blend with form side */}
         <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-transparent w-1/3"></div>
 
-        {/* Floating decorative elements */}
         <div className="absolute top-[15%] right-[10%] w-16 h-16 rounded-2xl bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center animate-bounce" style={{ animationDuration: '3s' }}>
           <span className="material-symbols-outlined text-white text-3xl">diamond</span>
         </div>
@@ -160,35 +154,34 @@ export default function LoginPage() {
           <span className="material-symbols-outlined text-white text-xl">payments</span>
         </div>
 
-        {/* Main content overlay */}
         <div className="relative z-10 flex flex-col justify-end p-12 lg:p-16 max-w-xl">
-          <div className="space-y-4 mb-8">
-            <div className="inline-flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-full text-sm font-label-md">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+          <div className="space-y-3 mb-6">
+            <div className="inline-flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/20 text-white px-3 py-1.5 rounded-full text-xs font-medium">
+              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
               Trusted top up platform
             </div>
             <h2 className="font-display-lg text-[40px] lg:text-[48px] text-white leading-[1.1] drop-shadow-lg">
               Top Up Game<br/>
               <span className="text-primary-container">Favoritmu</span>
             </h2>
-            <p className="font-body-lg text-white/80 max-w-md drop-shadow">
+            <p className="text-white/80 max-w-md drop-shadow text-sm">
               Cepat, aman, dan terpercaya. Tersedia untuk semua game populer.
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 bg-black/25 backdrop-blur-md border border-white/15 rounded-2xl px-5 py-3">
-              <span className="material-symbols-outlined text-primary-container text-xl">bolt</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/15 rounded-xl px-4 py-2.5">
+              <span className="material-symbols-outlined text-primary-container text-base">bolt</span>
               <div>
-                <p className="text-white font-label-md text-sm font-semibold">Instant</p>
-                <p className="text-white/70 font-caption text-xs">Auto process</p>
+                <p className="text-white text-xs font-semibold">Instant</p>
+                <p className="text-white/60 text-[10px]">Auto process</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 bg-black/25 backdrop-blur-md border border-white/15 rounded-2xl px-5 py-3">
-              <span className="material-symbols-outlined text-primary-container text-xl">verified_user</span>
+            <div className="flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/15 rounded-xl px-4 py-2.5">
+              <span className="material-symbols-outlined text-primary-container text-base">verified_user</span>
               <div>
-                <p className="text-white font-label-md text-sm font-semibold">Secure</p>
-                <p className="text-white/70 font-caption text-xs">100% safe</p>
+                <p className="text-white text-xs font-semibold">Secure</p>
+                <p className="text-white/60 text-[10px]">100% safe</p>
               </div>
             </div>
           </div>

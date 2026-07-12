@@ -1,7 +1,6 @@
 "use client"
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import Navbar from '@/components/Navbar';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -68,79 +67,79 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background">
+    <div className="h-screen flex flex-col md:flex-row bg-background overflow-hidden">
       {/* Left side: Form */}
-      <div className="w-full md:w-[480px] lg:w-[520px] flex flex-col justify-center px-8 md:px-14 lg:px-20 py-12 relative z-10">
-        <a className="inline-flex items-center gap-2.5 shrink-0 mb-14 block" href="/">
-          <img src="/images/logonexus.png" alt="NexusPay" className="w-10 h-10 rounded-xl object-contain" />
-          <span className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">NexusPay</span>
-        </a>
+      <div className="w-full md:w-[480px] lg:w-[520px] flex flex-col justify-center px-8 md:px-14 lg:px-20 relative z-10">
+        <div className="w-full max-w-[400px] mx-auto -mt-4">
+          <a className="inline-flex items-center gap-2 shrink-0 mb-6" href="/">
+            <img src="/images/logonexus.png" alt="NexusPay" className="w-8 h-8 rounded-lg object-contain" />
+            <span className="text-lg font-bold tracking-tight text-on-surface">NexusPay</span>
+          </a>
 
-        <div className="w-full max-w-[400px] mx-auto">
-          <div className="mb-10">
-            <h1 className="font-display-lg text-[32px] md:text-[36px] text-on-surface mb-3 leading-tight">Sign<br/>Up</h1>
-            <p className="font-body-lg text-body-lg text-on-surface-variant">Join NexusPay and start top up</p>
+          <div className="mb-4">
+            <h1 className="text-[26px] text-on-surface mb-1 leading-tight font-bold">Sign Up</h1>
+            <p className="text-sm text-on-surface-variant">Join NexusPay and start top up</p>
           </div>
 
           {error && (
-            <div className="bg-error/10 border border-error/20 text-error p-3.5 rounded-2xl mb-6 font-body-md text-sm flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[18px]">error</span>
+            <div className="bg-error/10 border border-error/20 text-error p-2.5 rounded-xl mb-3 text-xs flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px]">error</span>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleRegister} className="space-y-5">
-            <div className="space-y-2">
-              <label className="font-label-md text-label-md text-on-surface-variant pl-1">Full Name</label>
+          <form onSubmit={handleRegister} className="space-y-2.5">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-on-surface-variant pl-1">Full Name</label>
               <input
                 type="text"
                 required
                 name="fullName"
-                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50 font-body-md"
+                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50"
                 placeholder="Your full name"
                 value={formData.fullName}
                 onChange={handleChange}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="font-label-md text-label-md text-on-surface-variant pl-1">Email</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-on-surface-variant pl-1">Email</label>
               <input
                 type="email"
                 required
                 name="email"
-                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50 font-body-md"
+                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50"
                 placeholder="you@example.com"
                 value={formData.email}
                 onChange={handleChange}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="font-label-md text-label-md text-on-surface-variant pl-1">Password</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-on-surface-variant pl-1">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   name="password"
-                  className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-2xl px-5 py-3.5 pr-12 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50 font-body-md"
+                  className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-xl px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50"
                   placeholder="Min. 6 characters"
                   value={formData.password}
                   onChange={handleChange}
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/60 hover:text-on-surface transition-colors">
-                  <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 hover:text-on-surface transition-colors">
+                  <span className="material-symbols-outlined text-[18px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
                 </button>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="font-label-md text-label-md text-on-surface-variant pl-1">Confirm Password</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-on-surface-variant pl-1">Confirm Password</label>
               <input
                 type="password"
                 required
                 name="confirmPassword"
-                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50 font-body-md"
+                className="w-full bg-surface-container-lowest/80 border border-outline-variant/40 text-on-surface rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all placeholder:text-on-surface-variant/50"
                 placeholder="Repeat password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
@@ -150,27 +149,27 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary font-label-lg px-4 py-3.5 rounded-2xl hover:shadow-xl hover:shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center h-13 font-semibold"
+              className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary text-sm font-semibold px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center mt-1"
             >
-              {loading ? <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span> : "Create Account"}
+              {loading ? <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span> : "Create Account"}
             </button>
           </form>
 
-          <div className="my-7 flex items-center gap-4">
+          <div className="my-3.5 flex items-center gap-3">
             <div className="h-px bg-outline-variant/40 flex-1"></div>
-            <span className="font-label-sm text-on-surface-variant/70 text-xs uppercase tracking-widest">or</span>
+            <span className="text-[10px] text-on-surface-variant/70 uppercase tracking-widest">or</span>
             <div className="h-px bg-outline-variant/40 flex-1"></div>
           </div>
 
           <button
             onClick={handleGoogleLogin}
-            className="w-full bg-surface-container-lowest/60 border border-outline-variant/30 text-on-surface font-label-lg px-4 py-3.5 rounded-2xl flex items-center justify-center gap-3 hover:bg-surface-container-high/60 hover:border-outline-variant/50 transition-all"
+            className="w-full bg-surface-container-lowest/60 border border-outline-variant/30 text-on-surface text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2.5 hover:bg-surface-container-high/60 hover:border-outline-variant/50 transition-all"
           >
-            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
             Continue with Google
           </button>
 
-          <p className="mt-10 text-center font-body-md text-on-surface-variant text-sm">
+          <p className="mt-4 text-center text-xs text-on-surface-variant">
             Already have an account? <a href="/login" className="text-primary hover:text-primary/80 font-semibold transition-colors">Sign in</a>
           </p>
         </div>
@@ -201,33 +200,33 @@ export default function RegisterPage() {
         </div>
 
         <div className="relative z-10 flex flex-col justify-end p-12 lg:p-16 max-w-xl">
-          <div className="space-y-4 mb-8">
-            <div className="inline-flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-full text-sm font-label-md">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+          <div className="space-y-3 mb-6">
+            <div className="inline-flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/20 text-white px-3 py-1.5 rounded-full text-xs font-medium">
+              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
               Trusted top up platform
             </div>
             <h2 className="font-display-lg text-[40px] lg:text-[48px] text-white leading-[1.1] drop-shadow-lg">
               Top Up Game<br/>
               <span className="text-primary-container">Favoritmu</span>
             </h2>
-            <p className="font-body-lg text-white/80 max-w-md drop-shadow">
+            <p className="text-white/80 max-w-md drop-shadow text-sm">
               Cepat, aman, dan terpercaya. Tersedia untuk semua game populer.
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 bg-black/25 backdrop-blur-md border border-white/15 rounded-2xl px-5 py-3">
-              <span className="material-symbols-outlined text-primary-container text-xl">bolt</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/15 rounded-xl px-4 py-2.5">
+              <span className="material-symbols-outlined text-primary-container text-base">bolt</span>
               <div>
-                <p className="text-white font-label-md text-sm font-semibold">Instant</p>
-                <p className="text-white/70 font-caption text-xs">Auto process</p>
+                <p className="text-white text-xs font-semibold">Instant</p>
+                <p className="text-white/60 text-[10px]">Auto process</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 bg-black/25 backdrop-blur-md border border-white/15 rounded-2xl px-5 py-3">
-              <span className="material-symbols-outlined text-primary-container text-xl">verified_user</span>
+            <div className="flex items-center gap-2 bg-black/25 backdrop-blur-md border border-white/15 rounded-xl px-4 py-2.5">
+              <span className="material-symbols-outlined text-primary-container text-base">verified_user</span>
               <div>
-                <p className="text-white font-label-md text-sm font-semibold">Secure</p>
-                <p className="text-white/70 font-caption text-xs">100% safe</p>
+                <p className="text-white text-xs font-semibold">Secure</p>
+                <p className="text-white/60 text-[10px]">100% safe</p>
               </div>
             </div>
           </div>
