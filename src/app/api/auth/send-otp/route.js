@@ -39,7 +39,7 @@ export async function POST(request) {
     }
 
     const { error: emailError } = await resend.emails.send({
-      from: 'NexusPay <noreply@resend.dev>',
+      from: 'NexusPay <onboarding@resend.dev>',
       to: email,
       subject: 'Kode Verifikasi NexusPay',
       html: `
