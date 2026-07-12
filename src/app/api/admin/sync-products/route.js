@@ -29,7 +29,9 @@ export async function POST(request) {
 
     const celestialResult = await fetchProducts();
     if (!celestialResult.success) {
-      return NextResponse.json({ error: 'Gagal fetch produk dari Celestial' }, { status: 500 });
+      const errMsg = celestialResult.error || celestialResult.message || JSON.stringify(celestialResult);
+      console.error('Celestial fetch failed:', errMsg);
+      return NextResponse.json({ error: `Gagal fetch dari Celestial: ${errMsg}` }, { status: 500 });
     }
 
     const products = celestialResult.data;

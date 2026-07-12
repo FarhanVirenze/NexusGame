@@ -13,27 +13,43 @@ export function generateCallbackSignature(trxId) {
 }
 
 export async function fetchProfile() {
-  const res = await fetch(`${CELESTIAL_BASE_URL}/profile`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      api_key: CELESTIAL_API_KEY,
-      signature: generateSignature(),
-    }),
-  });
-  return res.json();
+  try {
+    const res = await fetch(`${CELESTIAL_BASE_URL}/profile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: CELESTIAL_API_KEY,
+        signature: generateSignature(),
+      }),
+    });
+    if (!res.ok) {
+      return { success: false, error: `Celestial API HTTP ${res.status}: ${res.statusText}` };
+    }
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return { success: false, error: `Celestial fetch failed: ${err.message}` };
+  }
 }
 
 export async function fetchProducts() {
-  const res = await fetch(`${CELESTIAL_BASE_URL}/produk`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      api_key: CELESTIAL_API_KEY,
-      signature: generateSignature(),
-    }),
-  });
-  return res.json();
+  try {
+    const res = await fetch(`${CELESTIAL_BASE_URL}/produk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: CELESTIAL_API_KEY,
+        signature: generateSignature(),
+      }),
+    });
+    if (!res.ok) {
+      return { success: false, error: `Celestial API HTTP ${res.status}: ${res.statusText}` };
+    }
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return { success: false, error: `Celestial fetch failed: ${err.message}` };
+  }
 }
 
 export async function createOrder({ refId, sku, target, zoneId, callbackUrl }) {
