@@ -56,6 +56,8 @@ export async function POST(request) {
       }
 
       const bonusMatch = product.nama_produk.match(/\((\d+\s*\+\s*\d+)\)/);
+      const diamondMatch = product.nama_produk.match(/(\d+)/);
+      const diamondQty = diamondMatch ? parseInt(diamondMatch[1]) : 0;
 
       return {
         game_id: gameId,
@@ -65,8 +67,11 @@ export async function POST(request) {
         sku: product.sku,
         celestial_price: celestialPrice,
         bonus: bonusMatch ? bonusMatch[1] : null,
+        _sort: diamondQty,
       };
     });
+
+    rows.sort((a, b) => a._sort - b._sort);
 
     if (rows.length > 0) {
       const { data: existingItems } = await supabaseServer
@@ -75,8 +80,8 @@ export async function POST(request) {
         .eq('game_id', gameId);
 
       const existingSkus = new Set((existingItems || []).map(i => i.sku));
-      const toInsert = rows.filter(r => !existingSkus.has(r.sku));
-      const toUpdate = rows.filter(r => existingSkus.has(r.sku));
+      const toInsert = rows.filter(r => !existingSkus.has(r.sku)).map(({ _sort, ...rest }) => rest);
+      const toUpdate = rows.filter(r => existingSkus.has(r.sku)).map(({ _sort, ...rest }) => rest);
 
       if (toInsert.length > 0) {
         const { error } = await supabaseServer.from('game_items').insert(toInsert);

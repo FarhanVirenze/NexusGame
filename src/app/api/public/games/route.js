@@ -11,7 +11,7 @@ export async function GET(request) {
         .from('game_items')
         .select('*')
         .eq('game_id', gameId)
-        .order('created_at', { ascending: false });
+        .order('price', { ascending: true });
 
       if (error) throw error;
       return NextResponse.json(data || []);

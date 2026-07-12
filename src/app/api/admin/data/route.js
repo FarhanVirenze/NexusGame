@@ -20,6 +20,11 @@ export async function GET(request) {
         .from('transactions')
         .select('*, users(email), games(title, image_url)')
         .order('created_at', { ascending: false });
+    } else if (table === 'game_items') {
+      query = supabaseServer
+        .from(table)
+        .select('*')
+        .order('price', { ascending: true });
     } else {
       query = supabaseServer
         .from(table)
