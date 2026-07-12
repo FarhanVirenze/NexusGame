@@ -1,11 +1,11 @@
 "use client"
 import React, { useEffect, useState, useMemo } from 'react';
+import TransactionChartsWrapper from '@/components/admin/TransactionChartsWrapper';
 
 export default function TransactionsComponent() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // DataTable state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortField, setSortField] = useState('created_at');
@@ -29,16 +29,13 @@ export default function TransactionsComponent() {
     fetchTransactions();
   }, []);
 
-  // Derived computed data
   const filtered = useMemo(() => {
     let result = [...transactions];
 
-    // Status filter
     if (statusFilter !== 'all') {
       result = result.filter(tx => tx.status === statusFilter);
     }
 
-    // Search — match id, game title, user email, amount
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(tx =>
@@ -49,7 +46,6 @@ export default function TransactionsComponent() {
       );
     }
 
-    // Sort
     result.sort((a, b) => {
       let valA, valB;
       if (sortField === 'amount') {
@@ -76,7 +72,6 @@ export default function TransactionsComponent() {
   const totalPages = Math.ceil(filtered.length / perPage);
   const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
 
-  // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
 
   const toggleSort = (field) => {
@@ -97,6 +92,63 @@ export default function TransactionsComponent() {
   const totalAmount = transactions.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const successCount = transactions.filter(tx => tx.status === 'completed').length;
   const pendingCount = transactions.filter(tx => tx.status === 'pending').length;
+  const failedCount = transactions.filter(tx => tx.status === 'failed').length;
+  const expiredCount = transactions.filter(tx => tx.status === 'expired').length;
+  const revenueAmount = transactions.filter(tx => tx.status === 'completed').reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+
+  // Daily transaction data for charts (last 14 days)
+  const dailyData = useMemo(() => {
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayLabel = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+      const count = transactions.filter(tx => tx.created_at && tx.created_at.startsWith(dateStr)).length;
+      days.push({ date: dayLabel, count });
+    }
+    return days;
+  }, [transactions]);
+
+  // Status distribution for pie chart
+  const statusData = useMemo(() => {
+    const data = [];
+    if (successCount > 0) data.push({ name: 'completed', value: successCount });
+    if (pendingCount > 0) data.push({ name: 'pending', value: pendingCount });
+    if (failedCount > 0) data.push({ name: 'failed', value: failedCount });
+    if (expiredCount > 0) data.push({ name: 'expired', value: expiredCount });
+    return data;
+  }, [successCount, pendingCount, failedCount, expiredCount]);
+
+  const summaryCards = [
+    { label: 'Total Transaksi', value: transactions.length, icon: 'receipt_long', color: 'bg-primary-container text-on-primary-container' },
+    { label: 'Revenue', value: `Rp ${revenueAmount.toLocaleString('id-ID')}`, icon: 'payments', color: 'bg-[#e6f4ea] text-[#137333]' },
+    { label: 'Completed', value: successCount, icon: 'check_circle', color: 'bg-[#e6f4ea] text-[#137333]' },
+    { label: 'Pending', value: pendingCount, icon: 'pending_actions', color: 'bg-[#fef7e0] text-[#b06000]' },
+    { label: 'Failed', value: failedCount, icon: 'cancel', color: 'bg-[#fce8e6] text-[#c5221f]' },
+    { label: 'Expired', value: expiredCount, icon: 'schedule', color: 'bg-gray-100 text-gray-600' },
+  ];
+
+  const handleExportCSV = () => {
+    const headers = ['Order ID', 'Game', 'User Email', 'Amount', 'Status', 'Date'];
+    const rows = filtered.map(tx => [
+      tx.id,
+      tx.games?.title || 'Unknown Game',
+      tx.users?.email || 'Unknown User',
+      tx.amount,
+      tx.status,
+      new Date(tx.created_at).toLocaleString('id-ID'),
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <>
@@ -108,44 +160,31 @@ export default function TransactionsComponent() {
               <h1 className="font-headline-lg text-headline-lg text-on-surface">Transaction Management</h1>
               <p className="font-body-md text-body-md text-on-surface-variant mt-1">Review and manage all player microtransactions.</p>
             </div>
-            <button className="flex items-center gap-2 bg-white border border-outline-variant text-on-surface px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+            <button onClick={handleExportCSV} className="flex items-center gap-2 bg-white border border-outline-variant text-on-surface px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
               <span className="material-symbols-outlined text-[18px]">download</span>
               Export CSV
             </button>
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="glass-panel p-6 rounded-xl flex items-center gap-4 border border-outline-variant/50">
-              <div className="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined">receipt_long</span>
-              </div>
-              <div>
-                <div className="font-label-md text-label-md text-on-surface-variant mb-1">Total Volume</div>
-                <div className="font-headline-md text-headline-md text-on-surface">
-                  {loading ? '...' : `Rp ${totalAmount.toLocaleString('id-ID')}`}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {summaryCards.map((card) => (
+              <div key={card.label} className="glass-panel p-4 rounded-xl flex items-center gap-3 border border-outline-variant/50">
+                <div className={`w-10 h-10 rounded-full ${card.color} flex items-center justify-center shrink-0`}>
+                  <span className="material-symbols-outlined text-[18px]">{card.icon}</span>
+                </div>
+                <div>
+                  <div className="font-caption text-[11px] text-on-surface-variant uppercase tracking-wider">{card.label}</div>
+                  <div className="font-headline-md text-headline-md text-on-surface">{loading ? '...' : card.value}</div>
                 </div>
               </div>
-            </div>
-            <div className="glass-panel p-6 rounded-xl flex items-center gap-4 border border-outline-variant/50">
-              <div className="w-12 h-12 rounded-full bg-[#e6f4ea] text-[#137333] flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined">check_circle</span>
-              </div>
-              <div>
-                <div className="font-label-md text-label-md text-on-surface-variant mb-1">Successful</div>
-                <div className="font-headline-md text-headline-md text-on-surface">{loading ? '...' : successCount}</div>
-              </div>
-            </div>
-            <div className="glass-panel p-6 rounded-xl flex items-center gap-4 border border-outline-variant/50">
-              <div className="w-12 h-12 rounded-full bg-[#fef7e0] text-[#b06000] flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined">pending_actions</span>
-              </div>
-              <div>
-                <div className="font-label-md text-label-md text-on-surface-variant mb-1">Pending</div>
-                <div className="font-headline-md text-headline-md text-on-surface">{loading ? '...' : pendingCount}</div>
-              </div>
-            </div>
+            ))}
           </div>
+
+          {/* Charts */}
+          {!loading && (
+            <TransactionChartsWrapper dailyData={dailyData} statusData={statusData} />
+          )}
 
           {/* DataTable Controls */}
           <div className="glass-panel rounded-xl overflow-hidden flex-1 flex flex-col">
@@ -170,6 +209,7 @@ export default function TransactionsComponent() {
                   <option value="completed">Completed</option>
                   <option value="pending">Pending</option>
                   <option value="failed">Failed</option>
+                  <option value="expired">Expired</option>
                 </select>
                 <div className="text-sm text-on-surface-variant whitespace-nowrap">
                   {filtered.length} result{filtered.length !== 1 && 's'}
@@ -232,6 +272,10 @@ export default function TransactionsComponent() {
                           ) : tx.status === 'failed' ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#fce8e6] text-[#c5221f]">
                               <span className="w-1.5 h-1.5 rounded-full bg-[#c5221f]"></span> Failed
+                            </span>
+                          ) : tx.status === 'expired' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Expired
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#fef7e0] text-[#b06000]">

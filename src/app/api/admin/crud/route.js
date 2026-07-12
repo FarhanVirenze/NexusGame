@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
+import { verifyAdmin, validateTable } from '@/lib/auth';
 
 export async function POST(request) {
+  const auth = await verifyAdmin(request);
+  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const body = await request.json();
     const { table, data } = body;
 
-    if (!['games', 'users', 'promotions', 'content', 'game_items'].includes(table)) {
+    if (!validateTable(table)) {
       return NextResponse.json({ error: 'Invalid table' }, { status: 400 });
     }
 
     if (table === 'users') {
-      // Special logic for creating users via auth admin
       const { email, password, first_name, last_name, phone, role } = data;
       
       const { data: authData, error: authError } = await supabaseServer.auth.admin.createUser({
@@ -23,7 +26,6 @@ export async function POST(request) {
 
       if (authError) throw authError;
 
-      // Update role (public.users gets created by trigger)
       const { error: updateError } = await supabaseServer
         .from('users')
         .update({ role: role || 'user' })
@@ -49,12 +51,19 @@ export async function POST(request) {
 }
 
 export async function PUT(request) {
+  const auth = await verifyAdmin(request);
+  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const body = await request.json();
     const { table, id, data } = body;
 
     if (!table || !id || !data) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
+
+    if (!validateTable(table)) {
+      return NextResponse.json({ error: 'Invalid table' }, { status: 400 });
     }
 
     const { data: updated, error } = await supabaseServer
@@ -73,6 +82,9 @@ export async function PUT(request) {
 }
 
 export async function DELETE(request) {
+  const auth = await verifyAdmin(request);
+  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const { searchParams } = new URL(request.url);
     const table = searchParams.get('table');
@@ -80,6 +92,10 @@ export async function DELETE(request) {
 
     if (!table || !id) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
+
+    if (!validateTable(table)) {
+      return NextResponse.json({ error: 'Invalid table' }, { status: 400 });
     }
 
     if (table === 'users') {

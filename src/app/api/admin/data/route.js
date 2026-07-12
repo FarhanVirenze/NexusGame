@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
+import { verifyAdmin, validateTable } from '@/lib/auth';
 
 export async function GET(request) {
+  const auth = await verifyAdmin(request);
+  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const { searchParams } = new URL(request.url);
   const table = searchParams.get('table');
 
-  if (!['games', 'users', 'transactions', 'promotions', 'content', 'game_items'].includes(table)) {
+  if (!validateTable(table)) {
     return NextResponse.json({ error: 'Invalid table' }, { status: 400 });
   }
 
@@ -14,7 +18,7 @@ export async function GET(request) {
     if (table === 'transactions') {
       query = supabaseServer
         .from('transactions')
-        .select('*, users(email), games(title)')
+        .select('*, users(email), games(title, image_url)')
         .order('created_at', { ascending: false });
     } else {
       query = supabaseServer

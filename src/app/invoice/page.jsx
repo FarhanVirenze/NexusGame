@@ -14,12 +14,17 @@ function InvoiceContent() {
       if (!transactionId) { setLoading(false); return; }
 
       try {
+        // Get session for auth
+        const { supabase } = await import('@/lib/supabaseClient');
+        const { data: { session } } = await supabase.auth.getSession();
+        const authHeaders = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+
         // Fetch transaction
-        const res = await fetch(`/api/transactions?id=${transactionId}`);
+        const res = await fetch(`/api/transactions?id=${transactionId}`, { headers: authHeaders });
         const result = await res.json();
 
         // Fetch Midtrans status for payment method info
-        const statusRes = await fetch(`/api/midtrans/status?id=${transactionId}`);
+        const statusRes = await fetch(`/api/midtrans/status?id=${transactionId}`, { headers: authHeaders });
         const statusData = await statusRes.json();
 
         if (res.ok && result.data) {

@@ -1,18 +1,17 @@
 import React from 'react';
 import { supabaseServer } from '@/lib/supabaseServer';
+import RevenueChartWrapper from '@/components/admin/RevenueChartWrapper';
 
 export default async function AdminComponent() {
-  // Fetch real data from Supabase
   const [{ count: totalUsers }, { data: allTransactions }, { data: recentTransactions }] = await Promise.all([
     supabaseServer.from('users').select('*', { count: 'exact', head: true }),
-    supabaseServer.from('transactions').select('amount, status'),
+    supabaseServer.from('transactions').select('amount, status, created_at'),
     supabaseServer.from('transactions')
       .select('*, games(title, image_url), users(email, first_name)')
       .order('created_at', { ascending: false })
       .limit(5)
   ]);
 
-  // Calculate metrics
   let totalRevenue = 0;
   let successCount = 0;
   let pendingOrders = 0;
@@ -32,10 +31,26 @@ export default async function AdminComponent() {
   const totalTx = allTransactions?.length || 0;
   const successRate = totalTx > 0 ? ((successCount / totalTx) * 100).toFixed(1) : 0;
 
+  // Compute daily revenue for the last 7 days
+  const dailyRevenue = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const dayLabel = d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric' });
+    let dayRevenue = 0;
+    if (allTransactions) {
+      allTransactions.forEach(tx => {
+        if (tx.created_at && tx.created_at.startsWith(dateStr) && (tx.status === 'completed' || tx.status === 'success')) {
+          dayRevenue += Number(tx.amount || 0);
+        }
+      });
+    }
+    dailyRevenue.push({ date: dayLabel, revenue: dayRevenue });
+  }
+
   return (
     <>
-
-      
       <main className="flex-1 flex flex-col min-h-screen transition-all duration-300 bg-background relative overflow-y-auto">
         <div className="p-6 md:p-margin-desktop max-w-container-max mx-auto w-full flex flex-col gap-8 pb-24 mt-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
@@ -45,18 +60,19 @@ export default async function AdminComponent() {
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <a href="/admin/games" className="bg-primary bg-gradient-to-r from-primary to-[#0080b8] text-on-primary font-label-md text-label-md px-5 py-2.5 rounded-xl shadow-md shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-sm" data-icon="add">add</span>
+                <span className="material-symbols-outlined text-sm">add</span>
                 New Game
               </a>
             </div>
           </div>
 
+          {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="glass-card rounded-2xl p-6 flex flex-col gap-4 relative overflow-hidden group">
               <div className="absolute -right-6 -top-6 w-24 h-24 bg-primary-container/20 rounded-full blur-2xl group-hover:bg-primary-container/30 transition-colors"></div>
               <div className="flex justify-between items-start z-10">
                 <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary" data-icon="payments">payments</span>
+                  <span className="material-symbols-outlined text-primary">payments</span>
                 </div>
               </div>
               <div className="z-10">
@@ -65,38 +81,18 @@ export default async function AdminComponent() {
                   Rp {totalRevenue.toLocaleString('id-ID')}
                 </h3>
               </div>
-              <div className="h-10 w-full flex items-end gap-1 mt-2 z-10 opacity-70">
-                <div className="w-full bg-primary/20 h-[20%] rounded-t-sm"></div>
-                <div className="w-full bg-primary/30 h-[40%] rounded-t-sm"></div>
-                <div className="w-full bg-primary/20 h-[30%] rounded-t-sm"></div>
-                <div className="w-full bg-primary/40 h-[60%] rounded-t-sm"></div>
-                <div className="w-full bg-primary/50 h-[50%] rounded-t-sm"></div>
-                <div className="w-full bg-primary/40 h-[70%] rounded-t-sm"></div>
-                <div className="w-full bg-primary/70 h-[90%] rounded-t-sm"></div>
-                <div className="w-full bg-primary h-[100%] rounded-t-sm"></div>
-              </div>
             </div>
 
             <div className="glass-card rounded-2xl p-6 flex flex-col gap-4 relative overflow-hidden group">
               <div className="absolute -right-6 -top-6 w-24 h-24 bg-tertiary-container/20 rounded-full blur-2xl group-hover:bg-tertiary-container/30 transition-colors"></div>
               <div className="flex justify-between items-start z-10">
                 <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-tertiary" data-icon="group">group</span>
+                  <span className="material-symbols-outlined text-tertiary">group</span>
                 </div>
               </div>
               <div className="z-10">
                 <p className="font-caption text-caption text-on-surface-variant uppercase tracking-wider mb-1">Total Users</p>
                 <h3 className="font-display-lg text-[32px] md:text-[40px] text-on-surface font-extrabold tracking-tight">{totalUsers}</h3>
-              </div>
-              <div className="h-10 w-full flex items-end gap-1 mt-2 z-10 opacity-70">
-                <div className="w-full bg-tertiary/30 h-[30%] rounded-t-sm"></div>
-                <div className="w-full bg-tertiary/40 h-[50%] rounded-t-sm"></div>
-                <div className="w-full bg-tertiary/30 h-[40%] rounded-t-sm"></div>
-                <div className="w-full bg-tertiary/50 h-[70%] rounded-t-sm"></div>
-                <div className="w-full bg-tertiary/40 h-[60%] rounded-t-sm"></div>
-                <div className="w-full bg-tertiary/60 h-[80%] rounded-t-sm"></div>
-                <div className="w-full bg-tertiary/70 h-[90%] rounded-t-sm"></div>
-                <div className="w-full bg-tertiary h-[100%] rounded-t-sm"></div>
               </div>
             </div>
 
@@ -104,22 +100,12 @@ export default async function AdminComponent() {
               <div className="absolute -right-6 -top-6 w-24 h-24 bg-secondary-container/20 rounded-full blur-2xl group-hover:bg-secondary-container/30 transition-colors"></div>
               <div className="flex justify-between items-start z-10">
                 <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-secondary" data-icon="task_alt">task_alt</span>
+                  <span className="material-symbols-outlined text-secondary">task_alt</span>
                 </div>
               </div>
               <div className="z-10">
                 <p className="font-caption text-caption text-on-surface-variant uppercase tracking-wider mb-1">Success Rate</p>
                 <h3 className="font-display-lg text-[32px] md:text-[40px] text-on-surface font-extrabold tracking-tight">{successRate}%</h3>
-              </div>
-              <div className="h-10 w-full flex items-end gap-1 mt-2 z-10 opacity-70">
-                <div className="w-full bg-secondary/80 h-[95%] rounded-t-sm"></div>
-                <div className="w-full bg-secondary/90 h-[98%] rounded-t-sm"></div>
-                <div className="w-full bg-secondary/80 h-[96%] rounded-t-sm"></div>
-                <div className="w-full bg-secondary/90 h-[99%] rounded-t-sm"></div>
-                <div className="w-full bg-secondary/80 h-[97%] rounded-t-sm"></div>
-                <div className="w-full bg-secondary/90 h-[98%] rounded-t-sm"></div>
-                <div className="w-full bg-secondary/80 h-[99%] rounded-t-sm"></div>
-                <div className="w-full bg-secondary h-[100%] rounded-t-sm"></div>
               </div>
             </div>
 
@@ -127,31 +113,28 @@ export default async function AdminComponent() {
               <div className="absolute -right-6 -top-6 w-24 h-24 bg-error-container/20 rounded-full blur-2xl group-hover:bg-error-container/30 transition-colors"></div>
               <div className="flex justify-between items-start z-10">
                 <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-error" data-icon="pending_actions">pending_actions</span>
+                  <span className="material-symbols-outlined text-error">pending_actions</span>
                 </div>
               </div>
               <div className="z-10">
                 <p className="font-caption text-caption text-on-surface-variant uppercase tracking-wider mb-1">Pending Orders</p>
                 <h3 className="font-display-lg text-[32px] md:text-[40px] text-on-surface font-extrabold tracking-tight">{pendingOrders}</h3>
               </div>
-              <div className="h-10 w-full flex items-end gap-1 mt-2 z-10 opacity-70">
-                <div className="w-full bg-error/20 h-[10%] rounded-t-sm"></div>
-                <div className="w-full bg-error/10 h-[5%] rounded-t-sm"></div>
-                <div className="w-full bg-error/30 h-[15%] rounded-t-sm"></div>
-                <div className="w-full bg-error/20 h-[10%] rounded-t-sm"></div>
-                <div className="w-full bg-error/40 h-[20%] rounded-t-sm"></div>
-                <div className="w-full bg-error/30 h-[15%] rounded-t-sm"></div>
-                <div className="w-full bg-error/50 h-[25%] rounded-t-sm"></div>
-                <div className="w-full bg-error/80 h-[40%] rounded-t-sm"></div>
-              </div>
             </div>
           </div>
 
-          <div className="glass-card rounded-2xl flex flex-col overflow-hidden mt-4">
+          {/* Revenue Chart */}
+          <div className="glass-card rounded-2xl p-6 overflow-hidden">
+            <h3 className="font-headline-md text-headline-md text-on-surface mb-4">Revenue (Last 7 Days)</h3>
+            <RevenueChartWrapper data={dailyRevenue} />
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="glass-card rounded-2xl flex flex-col overflow-hidden">
             <div className="p-6 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest/50">
               <h3 className="font-headline-md text-headline-md-mobile md:text-headline-md text-on-surface">Recent Transactions</h3>
               <a href="/admin/transactions" className="font-label-md text-label-md text-primary hover:text-primary-container transition-colors flex items-center gap-1">
-                View All <span className="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+                View All <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </a>
             </div>
             <div className="overflow-x-auto">
@@ -197,6 +180,7 @@ export default async function AdminComponent() {
                           <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide
                             ${tx.status === 'completed' || tx.status === 'success' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 
                               tx.status === 'failed' ? 'bg-red-100 text-red-800 border border-red-200' : 
+                              tx.status === 'expired' ? 'bg-gray-100 text-gray-600 border border-gray-200' :
                               'bg-amber-100 text-amber-800 border border-amber-200'}`}
                           >
                             {tx.status || 'Pending'}

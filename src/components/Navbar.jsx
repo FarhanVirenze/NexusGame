@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import BrandLogo from '@/components/BrandLogo';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function Navbar() {
   const [user, setUser] = useState(null);
@@ -129,6 +130,7 @@ export default function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-4 shrink-0">
+          <ThemeToggle />
           {loading ? (
             <div className="w-10 h-10 rounded-full bg-surface-container-high animate-pulse ml-4"></div>
           ) : !user ? (

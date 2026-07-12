@@ -21,7 +21,9 @@ export default function HistoryComponent() {
         return;
       }
 
-      const res = await fetch(`/api/transactions?user_id=${session.user.id}`);
+      const res = await fetch(`/api/transactions?user_id=${session.user.id}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
       const result = await res.json();
 
       if (res.ok && result.data) {
@@ -32,7 +34,9 @@ export default function HistoryComponent() {
         if (pendingTxs.length > 0) {
           const syncPromises = pendingTxs.map(async (tx) => {
             try {
-              const statusRes = await fetch(`/api/midtrans/status?id=${tx.id}`);
+              const statusRes = await fetch(`/api/midtrans/status?id=${tx.id}`, {
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+              });
               const statusData = await statusRes.json();
               if (statusRes.ok && statusData.status) {
                 return { id: tx.id, newStatus: statusData.status, invoiceUrl: statusData.invoice_url };

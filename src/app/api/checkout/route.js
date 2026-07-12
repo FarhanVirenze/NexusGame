@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
+import { verifyAuth } from '@/lib/auth';
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { userId, gameId, itemName, price, playerInfo, userEmail } = body;
+    // Verify user is authenticated — get userId from server session, NOT client
+    const auth = await verifyAuth(request);
+    if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-    if (!userId || !gameId || !price) {
+    const body = await request.json();
+    const { gameId, itemName, price, playerInfo, userEmail } = body;
+
+    // Use server-verified userId, not client-provided
+    const userId = auth.user.id;
+
+    if (!gameId || !price) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -18,7 +26,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Midtrans not configured' }, { status: 500 });
     }
 
-    // 1. Create transaction in Supabase first (status: pending)
+    // 1. Create transaction in Supabase
     const transactionId = crypto.randomUUID();
     const { error: dbError } = await supabaseServer
       .from('transactions')
@@ -55,7 +63,7 @@ export async function POST(request) {
         quantity: 1,
       }],
       customer: {
-        email: userEmail || 'guest@nexusgame.com',
+        email: userEmail || auth.user.email || 'guest@nexusgame.com',
       },
       callbacks: {
         finish: `${siteUrl}/order/success`,
@@ -79,7 +87,6 @@ export async function POST(request) {
       return NextResponse.json({ error: midtransData.message || 'Failed to generate payment link' }, { status: midtransRes.status });
     }
 
-    // Return the Snap redirect URL to redirect the user
     return NextResponse.json({
       success: true,
       redirect_url: midtransData.redirect_url,

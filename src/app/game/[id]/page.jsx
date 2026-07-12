@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useParams } from 'next/navigation';
+import { toast } from 'sonner';
 
 // Map game titles to check-ign supported names and their field configs
 const GAME_CONFIGS = {
@@ -90,13 +91,12 @@ export default function GameDetail() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        alert('Silakan login terlebih dahulu untuk melakukan pembelian.');
+        toast.error('Silakan login terlebih dahulu untuk melakukan pembelian.');
         setIsOrdering(false);
         return;
       }
       
       const payload = {
-        userId: session.user.id,
         userEmail: session.user.email,
         gameId: game.id,
         itemId: selectedItem.id,
@@ -107,7 +107,10 @@ export default function GameDetail() {
 
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify(payload)
       });
       
@@ -117,12 +120,12 @@ export default function GameDetail() {
         // Redirect to Midtrans Snap payment page
         window.location.href = data.redirect_url;
       } else {
-        alert('Checkout failed: ' + (data.error || 'Unknown error'));
+        toast.error('Checkout failed: ' + (data.error || 'Unknown error'));
         setIsOrdering(false);
       }
     } catch (err) {
       console.error('Order error:', err);
-      alert('Terjadi kesalahan saat memproses pesanan.');
+      toast.error('Terjadi kesalahan saat memproses pesanan.');
       setIsOrdering(false);
     }
   };

@@ -19,14 +19,19 @@ function OrderSuccessContent() {
       }
 
       try {
+        // Get session for auth
+        const { supabase } = await import('@/lib/supabaseClient');
+        const { data: { session } } = await supabase.auth.getSession();
+        const authHeaders = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+
         // 1. First, sync the real status from Midtrans
         setSyncing(true);
-        const statusRes = await fetch(`/api/midtrans/status?id=${transactionId}`);
+        const statusRes = await fetch(`/api/midtrans/status?id=${transactionId}`, { headers: authHeaders });
         const statusData = await statusRes.json();
         setSyncing(false);
 
         // 2. Then fetch the transaction details from our DB (now updated)
-        const res = await fetch(`/api/transactions?id=${transactionId}`);
+        const res = await fetch(`/api/transactions?id=${transactionId}`, { headers: authHeaders });
         const result = await res.json();
           
         if (res.ok && result.data) {

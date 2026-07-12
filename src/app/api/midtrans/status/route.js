@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-
-// This endpoint checks the real payment status from Midtrans
-// and syncs it with our database.
+import { verifyUserOrAdmin } from '@/lib/auth';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -11,6 +9,10 @@ export async function GET(request) {
   if (!orderId) {
     return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
   }
+
+  // Verify auth — user can only check own orders, admin can check all
+  const auth = await verifyUserOrAdmin(request, null);
+  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const serverKey = process.env.MIDTRANS_SERVER_KEY;
   const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
@@ -39,14 +41,12 @@ export async function GET(request) {
 
     const data = await midtransRes.json();
 
-    // Map Midtrans status to our internal status
     let newStatus;
     const transactionStatus = data.transaction_status;
     const fraudStatus = data.fraud_status;
 
     switch (transactionStatus) {
       case 'capture':
-        // For credit card, capture means success
         newStatus = 'completed';
         break;
       case 'settlement':
@@ -68,7 +68,6 @@ export async function GET(request) {
         newStatus = 'pending';
     }
 
-    // For credit card transactions, also check fraud status
     if (transactionStatus === 'capture' && fraudStatus === 'challenge') {
       newStatus = 'pending';
     }
@@ -76,7 +75,6 @@ export async function GET(request) {
       newStatus = 'failed';
     }
 
-    // Update transaction status in our database
     const { error: dbError } = await supabaseServer
       .from('transactions')
       .update({ status: newStatus })
