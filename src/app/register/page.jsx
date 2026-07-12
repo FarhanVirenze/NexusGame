@@ -45,50 +45,51 @@ export default function RegisterPage() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        data: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            phone: formData.phone,
+          }
+        }
+      });
+
+      if (error) {
+        console.error('SignUp error:', JSON.stringify(error));
+        const raw = typeof error === 'string' ? error : (error.message || error.error_description || error.msg || '');
+        const msg = raw || JSON.stringify(error);
+        if (msg.includes('rate limit') || msg.includes('email')) {
+          setError('Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.');
+          setCooldown(60);
+        } else if (msg.includes('already registered') || msg.includes('already been registered')) {
+          setError('Email sudah terdaftar. Silakan login atau gunakan email lain.');
+        } else if (msg && msg !== '{}') {
+          setError(msg);
+        } else {
+          setError('Terjadi kesalahan. Silakan coba lagi.');
+        }
+        setLoading(false);
+      } else {
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+          setError('Email sudah terdaftar. Silakan login atau gunakan email lain.');
+          setLoading(false);
+          return;
+        }
+        if (data.user && !data.session) {
+          window.location.href = `/verify-email?email=${encodeURIComponent(formData.email)}`;
+        } else {
+          window.location.href = '/';
         }
       }
-    });
-
-    if (error) {
-      console.error('SignUp error:', JSON.stringify(error));
-      const raw = typeof error === 'string' ? error : (error.message || error.error_description || error.msg || '');
-      const msg = raw || JSON.stringify(error);
-      if (msg.includes('rate limit') || msg.includes('email')) {
-        setError('Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.');
-        setCooldown(60);
-      } else if (msg.includes('already registered') || msg.includes('already been registered')) {
-        setError('Email sudah terdaftar. Silakan login atau gunakan email lain.');
-      } else if (msg) {
-        setError(msg);
-      } else {
-        setError('Terjadi kesalahan. Silakan coba lagi.');
-      }
+    } catch (err) {
+      console.error('SignUp exception:', err);
+      setError('Terjadi kesalahan. Silakan coba lagi.');
       setLoading(false);
-    } else {
-      if (data.user && !data.session) {
-        window.location.href = `/verify-email?email=${encodeURIComponent(formData.email)}`;
-      } else {
-        window.location.href = '/';
-      }
     }
-  };
-
-  const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      }
-    });
-    if (error) setError(error.message);
   };
 
   return (
@@ -214,21 +215,7 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <div className="my-2.5 flex items-center gap-3">
-            <div className="h-px bg-outline-variant/40 flex-1"></div>
-            <span className="text-[9px] text-on-surface-variant/70 uppercase tracking-widest">or</span>
-            <div className="h-px bg-outline-variant/40 flex-1"></div>
-          </div>
-
-          <button
-            onClick={handleGoogleLogin}
-            className="w-full bg-surface-container-lowest/60 border border-outline-variant/30 text-on-surface text-xs font-medium px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-surface-container-high/60 hover:border-outline-variant/50 transition-all"
-          >
-            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-3.5 h-3.5" />
-            Continue with Google
-          </button>
-
-          <p className="mt-3 text-center text-[11px] text-on-surface-variant">
+          <p className="mt-4 text-center text-[11px] text-on-surface-variant">
             Already have an account? <a href="/login" className="text-primary hover:text-primary/80 font-semibold transition-colors">Sign in</a>
           </p>
         </div>
