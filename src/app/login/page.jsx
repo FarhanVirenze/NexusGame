@@ -135,7 +135,7 @@ export default function LoginPage() {
       {/* Right side: Image */}
       <div className="hidden md:block w-full md:w-1/2 lg:w-[55%] relative overflow-hidden">
         <img 
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuBG_XO6IpFp_EadDhd-DfEqX9RU9i3M1bLsKwVSRJ3GYqfaan5FrQC-oAqtrkeU2jW4gf8pFUBPrF63JMLWPG8QlAnozVdieBaSrdzMY1RjP-Z5IJm8ONct3lDpkc3TAhWD-S8FsNRm3wmohUEfl5oSjVOaY2bTozW6zExp7XapFmg6vZLBhhr5pPmgpUyoL8y6HLtXVItB65SUgWiRyfgoRYRcIFKi5lu3XxmSjbv4rUxcEEp8Ru7HOMQp9TUgKQhkkx9glU1v2F9O" 
+          src="/images/ml.png"
           alt="Login background" 
           className="absolute inset-0 w-full h-full object-cover"
         />

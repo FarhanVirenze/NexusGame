@@ -228,7 +228,7 @@ export default function RegisterPage() {
       {/* Right side: Image */}
       <div className="hidden md:block w-full md:w-1/2 lg:w-[50%] relative overflow-hidden">
         <img 
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz31MX0ycIMxoSyE_UdJyF70j1tuogdaQVP9lv5507OdmqSWfHDgkpLVaYgV1wbqAOeUpKbfMsmcn5Pk4A9FvfLqmpSSs_pFiF6PFLHLLHCnES7lCizd4NPv8cz7L2jkvfJB1m4kT4HyE6ZO-slkI3N2YLdzKsnHOxqHeii8XQWkArgUC3auNbFQnsUrHJtKebM6sDhVC04glPwSkEwRZRdOzPLSUoA4eGLJtBuzh-sGyK_OS7BJEK5epLPgWGXsrAHSGAmeZcm32m" 
+          src="/images/ml.png"
           alt="Register background" 
           className="absolute inset-0 w-full h-full object-cover"
         />
