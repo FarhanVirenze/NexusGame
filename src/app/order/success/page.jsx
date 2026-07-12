@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
-  const transactionId = searchParams.get('id');
+  const transactionId = searchParams.get('order_id');
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
