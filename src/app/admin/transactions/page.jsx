@@ -1,5 +1,6 @@
 "use client"
 import React, { useEffect, useState, useMemo } from 'react';
+import { adminFetch } from '@/lib/adminFetch';
 import TransactionChartsWrapper from '@/components/admin/TransactionChartsWrapper';
 
 export default function TransactionsComponent() {
@@ -16,7 +17,7 @@ export default function TransactionsComponent() {
   useEffect(() => {
     async function fetchTransactions() {
       try {
-        const res = await fetch('/api/admin/data?table=transactions');
+        const res = await adminFetch('/api/admin/data?table=transactions');
         if (!res.ok) throw new Error('Failed to fetch data');
         const data = await res.json();
         setTransactions(data || []);

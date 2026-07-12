@@ -1,6 +1,7 @@
 "use client"
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { adminFetch } from '@/lib/adminFetch';
 
 export default function UsersComponent() {
   const [users, setUsers] = useState([]);
@@ -29,7 +30,7 @@ export default function UsersComponent() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin/data?table=users');
+      const res = await adminFetch('/api/admin/data?table=users');
       if (!res.ok) throw new Error('Failed to fetch data');
       const data = await res.json();
       setUsers(data || []);
@@ -131,17 +132,13 @@ export default function UsersComponent() {
     if (!file) return;
 
     setUploadingImage(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { alert("You must be logged in"); setUploadingImage(false); return; }
-
-    const payload = new FormData();
-    payload.append('file', file);
-    payload.append('bucket', 'avatars');
-
     try {
-      const res = await fetch('/api/admin/upload', {
+      const payload = new FormData();
+      payload.append('file', file);
+      payload.append('bucket', 'avatars');
+
+      const res = await adminFetch('/api/admin/upload', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
         body: payload,
       });
       const data = await res.json();
@@ -165,10 +162,10 @@ export default function UsersComponent() {
       if (modalMode === 'create') {
         payload.email = formData.email;
         payload.password = formData.password;
-        const res = await fetch('/api/admin/crud', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table: 'users', data: payload }) });
+        const res = await adminFetch('/api/admin/crud', { method: 'POST', body: JSON.stringify({ table: 'users', data: payload }) });
         if (!res.ok) throw new Error('Failed to create user');
       } else {
-        const res = await fetch('/api/admin/crud', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table: 'users', id: formData.id, data: payload }) });
+        const res = await adminFetch('/api/admin/crud', { method: 'PUT', body: JSON.stringify({ table: 'users', id: formData.id, data: payload }) });
         if (!res.ok) throw new Error('Failed to update user');
       }
       await fetchUsers();
@@ -184,7 +181,7 @@ export default function UsersComponent() {
     if (!itemToDelete) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/crud?table=users&id=${itemToDelete.id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/crud?table=users&id=${itemToDelete.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
       await fetchUsers();
       closeDeleteModal();

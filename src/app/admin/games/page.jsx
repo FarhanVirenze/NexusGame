@@ -1,6 +1,7 @@
 "use client"
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { adminFetch } from '@/lib/adminFetch';
 import GameItemsModal from '@/components/admin/GameItemsModal';
 
 export default function GamesComponent() {
@@ -31,7 +32,7 @@ export default function GamesComponent() {
 
   const fetchGames = async () => {
     try {
-      const res = await fetch('/api/admin/data?table=games');
+      const res = await adminFetch('/api/admin/data?table=games');
       if (!res.ok) throw new Error('Failed to fetch data');
       const data = await res.json();
       setGames(data || []);
@@ -114,21 +115,13 @@ export default function GamesComponent() {
     if (!file) return;
 
     setUploadingImage(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      alert("You must be logged in to upload images");
-      setUploadingImage(false);
-      return;
-    }
-
-    const payload = new FormData();
-    payload.append('file', file);
-    payload.append('bucket', 'uploads');
-
     try {
-      const res = await fetch('/api/admin/upload', {
+      const payload = new FormData();
+      payload.append('file', file);
+      payload.append('bucket', 'uploads');
+
+      const res = await adminFetch('/api/admin/upload', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
         body: payload,
       });
       const data = await res.json();
@@ -159,16 +152,14 @@ export default function GamesComponent() {
       };
 
       if (modalMode === 'create') {
-        const res = await fetch('/api/admin/crud', {
+        const res = await adminFetch('/api/admin/crud', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ table: 'games', data: payload })
         });
         if (!res.ok) throw new Error('Failed to create');
       } else {
-        const res = await fetch('/api/admin/crud', {
+        const res = await adminFetch('/api/admin/crud', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ table: 'games', id: formData.id, data: payload })
         });
         if (!res.ok) throw new Error('Failed to update');
@@ -188,7 +179,7 @@ export default function GamesComponent() {
     if (!itemToDelete) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/crud?table=games&id=${itemToDelete.id}`, {
+      const res = await adminFetch(`/api/admin/crud?table=games&id=${itemToDelete.id}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to delete');

@@ -1,6 +1,7 @@
 "use client"
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { adminFetch } from '@/lib/adminFetch';
 
 export default function ContentComponent() {
   const [news, setNews] = useState([]);
@@ -21,7 +22,7 @@ export default function ContentComponent() {
 
   const fetchNews = async () => {
     try {
-      const res = await fetch('/api/admin/data?table=content');
+      const res = await adminFetch('/api/admin/data?table=content');
       if (!res.ok) throw new Error('Failed to fetch data');
       const data = await res.json();
       setNews(data || []);
@@ -73,21 +74,13 @@ export default function ContentComponent() {
     if (!file) return;
 
     setUploadingImage(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      alert("You must be logged in to upload images");
-      setUploadingImage(false);
-      return;
-    }
-
-    const payload = new FormData();
-    payload.append('file', file);
-    payload.append('bucket', 'uploads');
-
     try {
-      const res = await fetch('/api/admin/upload', {
+      const payload = new FormData();
+      payload.append('file', file);
+      payload.append('bucket', 'uploads');
+
+      const res = await adminFetch('/api/admin/upload', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
         body: payload,
       });
       const data = await res.json();
@@ -118,16 +111,14 @@ export default function ContentComponent() {
       };
 
       if (modalMode === 'create') {
-        const res = await fetch('/api/admin/crud', {
+        const res = await adminFetch('/api/admin/crud', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ table: 'content', data: payload })
         });
         if (!res.ok) throw new Error('Failed to create');
       } else {
-        const res = await fetch('/api/admin/crud', {
+        const res = await adminFetch('/api/admin/crud', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ table: 'content', id: formData.id, data: payload })
         });
         if (!res.ok) throw new Error('Failed to update');
@@ -147,7 +138,7 @@ export default function ContentComponent() {
     if (!itemToDelete) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/crud?table=content&id=${itemToDelete.id}`, {
+      const res = await adminFetch(`/api/admin/crud?table=content&id=${itemToDelete.id}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to delete');

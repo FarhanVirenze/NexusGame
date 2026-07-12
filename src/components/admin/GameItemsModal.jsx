@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { adminFetch } from '@/lib/adminFetch';
 
 export default function GameItemsModal({ game, onClose }) {
   const [items, setItems] = useState([]);
@@ -16,7 +17,7 @@ export default function GameItemsModal({ game, onClose }) {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/admin/data?table=game_items&game_id=${game.id}`);
+      const res = await adminFetch(`/api/admin/data?table=game_items&game_id=${game.id}`);
       if (!res.ok) throw new Error('Failed to fetch items');
       let data = await res.json();
       
@@ -69,16 +70,14 @@ export default function GameItemsModal({ game, onClose }) {
       };
 
       if (formMode === 'create') {
-        const res = await fetch('/api/admin/crud', {
+        const res = await adminFetch('/api/admin/crud', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ table: 'game_items', data: payload })
         });
         if (!res.ok) throw new Error('Failed to create item');
       } else {
-        const res = await fetch('/api/admin/crud', {
+        const res = await adminFetch('/api/admin/crud', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ table: 'game_items', id: formData.id, data: payload })
         });
         if (!res.ok) throw new Error('Failed to update item');
@@ -96,7 +95,7 @@ export default function GameItemsModal({ game, onClose }) {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
     try {
-      await fetch(`/api/admin/crud?table=game_items&id=${id}`, { method: 'DELETE' });
+      await adminFetch(`/api/admin/crud?table=game_items&id=${id}`, { method: 'DELETE' });
       await fetchItems();
     } catch (err) {
       alert('Error deleting item');
@@ -108,21 +107,13 @@ export default function GameItemsModal({ game, onClose }) {
     if (!file) return;
 
     setUploadingImage(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      alert("You must be logged in to upload images");
-      setUploadingImage(false);
-      return;
-    }
-
-    const payload = new FormData();
-    payload.append('file', file);
-    payload.append('bucket', 'uploads');
-
     try {
-      const res = await fetch('/api/admin/upload', {
+      const payload = new FormData();
+      payload.append('file', file);
+      payload.append('bucket', 'uploads');
+
+      const res = await adminFetch('/api/admin/upload', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
         body: payload,
       });
       const data = await res.json();
