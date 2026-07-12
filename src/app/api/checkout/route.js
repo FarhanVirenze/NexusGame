@@ -68,7 +68,7 @@ export async function POST(request) {
         email: userEmail || auth.user.email || 'guest@nexusgame.com',
       },
       callbacks: {
-        finish: `${siteUrl}/order/success`,
+        finish: `${siteUrl}/history`,
       },
     };
 
