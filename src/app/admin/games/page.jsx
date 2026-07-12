@@ -11,7 +11,7 @@ export default function GamesComponent() {
   // Create/Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
-  const [formData, setFormData] = useState({ id: '', title: '', category: '', price: '', image_url: '' });
+  const [formData, setFormData] = useState({ id: '', title: '', category: '', image_url: '' });
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
@@ -80,7 +80,7 @@ export default function GamesComponent() {
 
   const openCreateModal = () => {
     setModalMode('create');
-    setFormData({ id: '', title: '', category: '', price: 0, image_url: '' });
+    setFormData({ id: '', title: '', category: '', image_url: '' });
     setIsModalOpen(true);
   };
 
@@ -90,7 +90,6 @@ export default function GamesComponent() {
       id: game.id, 
       title: game.title || '', 
       category: game.category || '', 
-      price: game.price || 0, 
       image_url: game.image_url || '' 
     });
     setIsModalOpen(true);
@@ -147,7 +146,6 @@ export default function GamesComponent() {
       const payload = {
         title: formData.title,
         category: formData.category,
-        price: parseFloat(formData.price) || 0,
         image_url: formData.image_url
       };
 
