@@ -10,6 +10,7 @@ export default function HistoryComponent() {
   const [isAuth, setIsAuth] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [payingId, setPayingId] = useState(null);
 
   useEffect(() => {
     async function loadHistory() {
@@ -39,7 +40,7 @@ export default function HistoryComponent() {
               });
               const statusData = await statusRes.json();
               if (statusRes.ok && statusData.status) {
-                return { id: tx.id, newStatus: statusData.status, invoiceUrl: statusData.invoice_url };
+                return { id: tx.id, newStatus: statusData.status };
               }
             } catch (e) {
               // Ignore sync errors for individual transactions
@@ -53,7 +54,6 @@ export default function HistoryComponent() {
               const tx = transactions.find(t => t.id === result.id);
               if (tx) {
                 tx.status = result.newStatus;
-                tx._invoiceUrl = result.invoiceUrl;
               }
             }
           });
@@ -66,6 +66,38 @@ export default function HistoryComponent() {
     }
     loadHistory();
   }, []);
+
+  async function handlePay(tx) {
+    setPayingId(tx.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/login';
+        return;
+      }
+
+      const res = await fetch('/api/midtrans/pay', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ orderId: tx.id }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.redirect_url) {
+        window.location.href = data.redirect_url;
+      } else {
+        alert(data.error || 'Gagal membuat link pembayaran');
+        setPayingId(null);
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan, coba lagi');
+      setPayingId(null);
+    }
+  }
 
   const filteredTx = txList.filter(tx => {
     const matchesSearch = searchQuery === '' || 
@@ -284,24 +316,27 @@ export default function HistoryComponent() {
               )}
             </div>
             <div className="col-span-1 md:col-span-2 flex justify-start md:justify-end gap-2">
-              {tx.status === 'pending' && tx._invoiceUrl && (
-                <a 
-                  href={tx._invoiceUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg transition-colors flex items-center gap-1" 
+              {tx.status === 'pending' && (
+                <button
+                  onClick={() => handlePay(tx)}
+                  disabled={payingId === tx.id}
+                  className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 font-label-md text-[11px]"
                   title="Lanjutkan Pembayaran"
                 >
-                  <span className="material-symbols-outlined text-[18px]">payments</span>
-                  <span className="text-[11px] font-label-md hidden sm:inline">Bayar</span>
-                </a>
+                  {payingId === tx.id ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  ) : (
+                    <span className="material-symbols-outlined text-[16px]">payments</span>
+                  )}
+                  <span className="hidden sm:inline">{payingId === tx.id ? 'Memproses...' : 'Bayar'}</span>
+                </button>
               )}
               {tx.status === 'completed' && (
-                <a 
+                <a
                   href={`/invoice?id=${tx.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-on-surface-variant hover:bg-surface-container-high p-2 rounded-lg transition-colors flex items-center gap-1" 
+                  className="text-on-surface-variant hover:bg-surface-container-high p-2 rounded-lg transition-colors flex items-center gap-1"
                   title="Download Invoice"
                 >
                   <span className="material-symbols-outlined text-[18px]">download</span>
