@@ -5,11 +5,12 @@ import { adminFetch } from '@/lib/adminFetch';
 export default function GameItemsModal({ game, onClose }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   
   // Form state for new/edit item
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState('create');
-  const [formData, setFormData] = useState({ id: '', name: '', price: '', category: '', bonus: '', icon_url: '' });
+  const [formData, setFormData] = useState({ id: '', name: '', price: '', category: '', bonus: '', icon_url: '', sku: '' });
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
@@ -40,9 +41,33 @@ export default function GameItemsModal({ game, onClose }) {
     }
   }, [game]);
 
+  const handleSync = async () => {
+    if (!confirm('Sync produk dari Celestial? Produk baru akan ditambahkan dan harga akan diperbarui.')) return;
+    
+    setSyncing(true);
+    try {
+      const res = await adminFetch('/api/admin/sync-products', {
+        method: 'POST',
+        body: JSON.stringify({ gameId: game.id }),
+      });
+      const result = await res.json();
+      
+      if (res.ok && result.success) {
+        alert(result.message);
+        await fetchItems();
+      } else {
+        alert(result.error || 'Gagal sync produk');
+      }
+    } catch (err) {
+      alert('Error syncing: ' + err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const openCreateForm = () => {
     setFormMode('create');
-    setFormData({ id: '', name: '', price: '', category: 'Diamonds', bonus: '', icon_url: '' });
+    setFormData({ id: '', name: '', price: '', category: 'Diamonds', bonus: '', icon_url: '', sku: '' });
     setShowForm(true);
   };
 
@@ -66,7 +91,8 @@ export default function GameItemsModal({ game, onClose }) {
         price: parseFloat(formData.price) || 0,
         category: formData.category,
         bonus: formData.bonus,
-        icon_url: formData.icon_url
+        icon_url: formData.icon_url,
+        sku: formData.sku || null,
       };
 
       if (formMode === 'create') {
@@ -151,12 +177,22 @@ export default function GameItemsModal({ game, onClose }) {
             <>
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-title-md text-on-surface">Available Denominations</h3>
-                <button 
-                  onClick={openCreateForm}
-                  className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-primary/90 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add</span> Add Item
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="bg-tertiary text-on-tertiary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-tertiary/90 transition-colors disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-[18px] ${syncing ? 'animate-spin' : ''}`}>{syncing ? 'progress_activity' : 'sync'}</span> 
+                    {syncing ? 'Syncing...' : 'Sync Celestial'}
+                  </button>
+                  <button 
+                    onClick={openCreateForm}
+                    className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-primary/90 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add</span> Add Item
+                  </button>
+                </div>
               </div>
 
               {loading ? (
@@ -175,9 +211,10 @@ export default function GameItemsModal({ game, onClose }) {
                     <thead>
                       <tr className="border-b border-outline-variant/30 bg-surface-container/30">
                         <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Item Name</th>
+                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">SKU</th>
                         <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Category</th>
                         <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Price</th>
-                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Bonus Text</th>
+                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Modal</th>
                         <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
@@ -190,11 +227,17 @@ export default function GameItemsModal({ game, onClose }) {
                             ) : (
                               <span className="material-symbols-outlined text-primary text-[20px]">diamond</span>
                             )}
-                            {item.name}
+                            <div>
+                              <div className="text-sm">{item.name}</div>
+                              {item.bonus && <div className="text-xs text-tertiary">Bonus: {item.bonus}</div>}
+                            </div>
                           </td>
+                          <td className="p-4 text-xs font-mono text-on-surface-variant">{item.sku || '-'}</td>
                           <td className="p-4 text-sm text-on-surface-variant">{item.category}</td>
                           <td className="p-4 text-sm font-semibold text-on-surface">Rp {Number(item.price).toLocaleString('id-ID')}</td>
-                          <td className="p-4 text-sm text-secondary-container">{item.bonus || '-'}</td>
+                          <td className="p-4 text-xs text-on-surface-variant">
+                            {item.celestial_price ? `Rp ${Number(item.celestial_price).toLocaleString('id-ID')}` : '-'}
+                          </td>
                           <td className="p-4 text-right">
                             <button onClick={() => openEditForm(item)} className="p-1.5 text-on-surface-variant hover:text-primary transition-colors">
                               <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -228,18 +271,23 @@ export default function GameItemsModal({ game, onClose }) {
                     value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                 </div>
                 <div className="col-span-full md:col-span-1">
-                  <label className="block text-sm font-medium text-on-surface-variant mb-1">Price (Rp)</label>
+                  <label className="block text-sm font-medium text-on-surface-variant mb-1">SKU (Celestial)</label>
+                  <input type="text" placeholder="e.g. ML3, ML12, MLIF1" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50 font-mono"
+                    value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} />
+                </div>
+                <div className="col-span-full md:col-span-1">
+                  <label className="block text-sm font-medium text-on-surface-variant mb-1">Price (Rp) - Jual ke Customer</label>
                   <input type="number" required min="0" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
                     value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
                 </div>
                 <div className="col-span-full md:col-span-1">
                   <label className="block text-sm font-medium text-on-surface-variant mb-1">Category (Tab Group)</label>
-                  <input type="text" placeholder="e.g. Diamonds, Starlight" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
+                  <input type="text" placeholder="e.g. Diamonds, Weekly Diamond Pass" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
                     value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
                 </div>
                 <div className="col-span-full md:col-span-1">
                   <label className="block text-sm font-medium text-on-surface-variant mb-1">Bonus Text (Optional)</label>
-                  <input type="text" placeholder="e.g. +1 Bonus" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
+                  <input type="text" placeholder="e.g. 11+1" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
                     value={formData.bonus} onChange={e => setFormData({...formData, bonus: e.target.value})} />
                 </div>
                 <div className="col-span-full">
