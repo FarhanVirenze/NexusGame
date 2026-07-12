@@ -99,7 +99,7 @@ export async function POST(request) {
       stats: { synced, updated, skipped, total: products.length },
     });
   } catch (error) {
-    console.error('Sync products error:', error);
-    return NextResponse.json({ error: 'Gagal sync produk' }, { status: 500 });
+    console.error('Sync products error:', error.message, error.stack);
+    return NextResponse.json({ error: `Gagal sync: ${error.message}` }, { status: 500 });
   }
 }
