@@ -14,10 +14,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
     }
 
-    // Ambil transaksi dari DB (termasuk snap_token & redirect_url yang tersimpan)
+    // Ambil transaksi dari DB (termasuk redirect_url yang tersimpan)
     const { data: tx, error: txError } = await supabaseServer
       .from('transactions')
-      .select('id, game_id, amount, status, user_id, snap_token, redirect_url')
+      .select('id, game_id, amount, status, user_id, redirect_url')
       .eq('id', orderId)
       .single();
 
@@ -71,11 +71,10 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // 3. Masih pending → return snap_token & redirect_url yang sudah disimpan
-    if (tx.snap_token) {
+    // 3. Masih pending → return redirect_url yang sudah disimpan
+    if (tx.redirect_url) {
       return NextResponse.json({
         success: true,
-        snap_token: tx.snap_token,
         redirect_url: tx.redirect_url,
       });
     }
@@ -130,18 +129,14 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Simpan snap_token & redirect_url baru ke DB
+    // Simpan redirect_url baru ke DB
     await supabaseServer
       .from('transactions')
-      .update({
-        snap_token: snapData.token,
-        redirect_url: snapData.redirect_url,
-      })
+      .update({ redirect_url: snapData.redirect_url })
       .eq('id', tx.id);
 
     return NextResponse.json({
       success: true,
-      snap_token: snapData.token,
       redirect_url: snapData.redirect_url,
     });
 
