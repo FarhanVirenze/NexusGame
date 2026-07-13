@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createOrder } from '@/lib/celestial';
+import { createOrder } from '@/lib/apigames';
 import { verifyAuth } from '@/lib/auth';
 
 export async function POST(request) {
@@ -16,17 +16,17 @@ export async function POST(request) {
       return NextResponse.json({ error: 'refId, sku, dan target wajib diisi' }, { status: 400 });
     }
 
-    const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/celestial/webhook`;
+    const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/apigames/webhook`;
 
     const result = await createOrder({ refId, sku, target, zoneId, callbackUrl });
 
     if (!result.success) {
-      return NextResponse.json({ error: result.message || 'Gagal membuat order' }, { status: 400 });
+      return NextResponse.json({ error: result.message || result.error || 'Gagal membuat order' }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, order: result.data });
   } catch (error) {
-    console.error('Celestial order error:', error);
+    console.error('APIGames order error:', error);
     return NextResponse.json({ error: 'Gagal membuat order' }, { status: 500 });
   }
 }

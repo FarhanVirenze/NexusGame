@@ -388,21 +388,7 @@ export default function HistoryComponent() {
                   <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span> Gagal Kirim
                 </span>
               )}
-              {tx.status === 'completed' && tx.fulfillment_status === 'waiting_deposit' && (
-                <span className="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1 rounded-full font-label-md text-[11px] w-fit">
-                  <span className="material-symbols-outlined text-[12px]">account_balance</span> Menunggu Deposit Admin
-                </span>
-              )}
             </div>
-            {tx.status === 'completed' && tx.fulfillment_status === 'waiting_deposit' && tx.celestial_deposit_qr && (
-              <div className="col-span-1 md:col-span-2 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                <p className="text-sm text-yellow-800 mb-3 font-medium">Silakan bayar deposit untuk memproses pesanan Anda:</p>
-                <div className="flex flex-col items-center gap-2">
-                  <img src={tx.celestial_deposit_qr} alt="QR Deposit" className="w-48 rounded-lg shadow-md" />
-                  <p className="text-xs text-yellow-700">ID Deposit: {tx.celestial_deposit_id}</p>
-                </div>
-              </div>
-            )}
             <div className="col-span-1 md:col-span-2 flex justify-start md:justify-end gap-2">
               {tx.status === 'pending' && (
                 <button

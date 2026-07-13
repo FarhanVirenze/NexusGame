@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { generateCallbackSignature } from '@/lib/celestial';
+import { generateSignature, mapApiGamesStatus } from '@/lib/apigames';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -10,56 +10,54 @@ const supabase = createClient(
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { status, data } = body;
+    const { ref_id, status, sn } = body;
 
-    console.log('Celestial webhook received:', JSON.stringify(body, null, 2));
+    console.log('APIGames webhook received:', JSON.stringify(body, null, 2));
 
-    if (!data || !data.trx_id) {
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    if (!ref_id) {
+      return NextResponse.json({ error: 'Invalid payload: missing ref_id' }, { status: 400 });
     }
 
-    const expectedSignature = generateCallbackSignature(data.trx_id);
-    const receivedSignature = body.signature;
+    const receivedSignature = request.headers.get('x-apigames-authorization');
+    const expectedSignature = generateSignature(ref_id);
 
     if (receivedSignature && receivedSignature !== expectedSignature) {
-      console.error('Invalid Celestial webhook signature');
+      console.error('Invalid APIGames webhook signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
     }
 
     const { data: transaction, error: findError } = await supabase
       .from('transactions')
       .select('id, status')
-      .eq('celestial_trx_id', data.trx_id)
+      .eq('id', ref_id)
       .single();
 
     if (findError || !transaction) {
-      console.error('Transaction not found for celestial_trx_id:', data.trx_id);
+      console.error('Transaction not found for ref_id:', ref_id);
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
+    const newFulfillmentStatus = mapApiGamesStatus(status);
     let newStatus = null;
-    let fulfillmentStatus = null;
 
-    if (status === 'success' || data.status === 'success') {
+    if (status === 'Sukses' || status === 'Success') {
       newStatus = 'completed';
-      fulfillmentStatus = 'completed';
-    } else if (status === 'failed' || data.status === 'failed') {
-      fulfillmentStatus = 'failed';
-    } else if (status === 'processing' || data.status === 'processing') {
-      fulfillmentStatus = 'processing';
+    } else if (status === 'Gagal' || status === 'Failed') {
+      newStatus = 'failed';
     }
 
-    const updateData = {};
-    if (fulfillmentStatus) {
-      updateData.fulfillment_status = fulfillmentStatus;
+    const updateData = {
+      fulfillment_status: newFulfillmentStatus,
+      delivered_at: new Date().toISOString(),
+    };
+
+    if (sn) {
+      updateData.delivery_sn = sn;
     }
+
     if (newStatus && transaction.status !== 'completed') {
       updateData.status = newStatus;
     }
-    if (data.sn) {
-      updateData.delivery_sn = data.sn;
-    }
-    updateData.delivered_at = new Date().toISOString();
 
     const { error: updateError } = await supabase
       .from('transactions')
@@ -73,7 +71,7 @@ export async function POST(request) {
 
     return NextResponse.json({ status: true });
   } catch (error) {
-    console.error('Celestial webhook error:', error);
+    console.error('APIGames webhook error:', error);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

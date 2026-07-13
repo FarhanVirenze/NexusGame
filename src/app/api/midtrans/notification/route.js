@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import crypto from 'crypto';
-import { createOrder, getSkuForItem, getBalance, createDeposit } from '@/lib/celestial';
-
-// Midtrans will call this endpoint when payment status changes
-// URL: https://yourdomain.com/api/midtrans/notification
+import { createOrder, getSkuForItem } from '@/lib/apigames';
 
 export async function POST(request) {
   try {
@@ -16,7 +13,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Verify signature — REQUIRED for security
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     if (!serverKey) {
       console.error('[Midtrans Notification] Server key not configured');
@@ -87,8 +83,8 @@ export async function POST(request) {
     console.log(`[Midtrans Notification] Order ${order_id} updated to: ${newStatus}`);
 
     if (newStatus === 'completed') {
-      processCelestialOrder(order_id).catch(err => {
-        console.error('[Midtrans Notification] Celestial order failed:', err);
+      processApiGamesOrder(order_id).catch(err => {
+        console.error('[Midtrans Notification] APIGames order failed:', err);
       });
     }
 
@@ -100,22 +96,22 @@ export async function POST(request) {
   }
 }
 
-async function processCelestialOrder(transactionId) {
-  console.log(`[Celestial] Processing order for transaction: ${transactionId}`);
+async function processApiGamesOrder(transactionId) {
+  console.log(`[APIGames] Processing order for transaction: ${transactionId}`);
 
   const { data: transaction, error: fetchError } = await supabaseServer
     .from('transactions')
-    .select('*, game_items(name, sku)')
+    .select('*, game_items(name, sku), games(title)')
     .eq('id', transactionId)
     .single();
 
   if (fetchError || !transaction) {
-    console.error('[Celestial] Transaction not found:', transactionId);
+    console.error('[APIGames] Transaction not found:', transactionId);
     return;
   }
 
   if (!transaction.player_info) {
-    console.error('[Celestial] No player_info for transaction:', transactionId);
+    console.error('[APIGames] No player_info for transaction:', transactionId);
     await supabaseServer
       .from('transactions')
       .update({ fulfillment_status: 'failed', delivery_sn: 'No player info provided' })
@@ -125,7 +121,7 @@ async function processCelestialOrder(transactionId) {
 
   const playerMatch = transaction.player_info.match(/^(\d+)\s*(?:\((\d+)\))?\s*-\s*(.+)$/);
   if (!playerMatch) {
-    console.error('[Celestial] Cannot parse player_info:', transaction.player_info);
+    console.error('[APIGames] Cannot parse player_info:', transaction.player_info);
     await supabaseServer
       .from('transactions')
       .update({ fulfillment_status: 'failed', delivery_sn: 'Cannot parse player info' })
@@ -150,16 +146,18 @@ async function processCelestialOrder(transactionId) {
       .single();
 
     if (item) {
-      sku = item.sku || getSkuForItem(item.name);
+      const gameTitle = transaction.games?.title || '';
+      sku = item.sku || getSkuForItem(item.name, gameTitle);
     }
   }
 
   if (!sku && transaction.player_info) {
-    sku = getSkuForItem(transaction.player_info);
+    const gameTitle = transaction.games?.title || '';
+    sku = getSkuForItem(transaction.player_info, gameTitle);
   }
 
   if (!sku) {
-    console.error('[Celestial] No SKU found for transaction:', transactionId);
+    console.error('[APIGames] No SKU found for transaction:', transactionId);
     await supabaseServer
       .from('transactions')
       .update({ fulfillment_status: 'failed', delivery_sn: 'No SKU mapping found' })
@@ -172,64 +170,7 @@ async function processCelestialOrder(transactionId) {
     .update({ fulfillment_status: 'processing' })
     .eq('id', transactionId);
 
-  const itemCelestialPrice = transaction.game_items?.celestial_price || 0;
-
-  if (itemCelestialPrice > 0) {
-    const saldo = await getBalance();
-
-    if (saldo === null) {
-      console.error('[Celestial] Failed to fetch balance for transaction:', transactionId);
-      await supabaseServer
-        .from('transactions')
-        .update({ fulfillment_status: 'failed', delivery_sn: 'Gagal cek saldo Celestial' })
-        .eq('id', transactionId);
-      return;
-    }
-
-    if (saldo < itemCelestialPrice) {
-      console.log(`[Celestial] Insufficient balance: ${saldo} < ${itemCelestialPrice}. Creating deposit...`);
-
-      const depositAmount = Math.max(10000, itemCelestialPrice - saldo);
-      const depositCallbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/celestial/deposit-webhook`;
-
-      const depositResult = await createDeposit({
-        jumlah: depositAmount,
-        callbackUrl: depositCallbackUrl,
-      });
-
-      console.log('[Celestial] Deposit result:', JSON.stringify(depositResult, null, 2));
-
-      if (depositResult.success && depositResult.data) {
-        await supabaseServer
-          .from('transactions')
-          .update({
-            fulfillment_status: 'waiting_deposit',
-            celestial_deposit_id: depositResult.data.deposit_id,
-            celestial_deposit_status: 'unpaid',
-            celestial_deposit_qr: depositResult.data.qr_image,
-            delivery_sn: `Menunggu deposit Rp ${depositAmount.toLocaleString('id-ID')} (ID: ${depositResult.data.deposit_id})`,
-          })
-          .eq('id', transactionId);
-
-        console.log(`[Celestial] Deposit created: ${depositResult.data.deposit_id}, waiting for admin payment`);
-      } else {
-        await supabaseServer
-          .from('transactions')
-          .update({
-            fulfillment_status: 'failed',
-            delivery_sn: 'Gagal membuat deposit: ' + (depositResult.error || depositResult.message || 'Unknown error'),
-          })
-          .eq('id', transactionId);
-
-        console.error('[Celestial] Deposit failed:', depositResult);
-      }
-      return;
-    }
-
-    console.log(`[Celestial] Balance OK: ${saldo} >= ${itemCelestialPrice}`);
-  }
-
-  const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/celestial/webhook`;
+  const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/apigames/webhook`;
 
   const result = await createOrder({
     refId: transactionId,
@@ -239,27 +180,27 @@ async function processCelestialOrder(transactionId) {
     callbackUrl,
   });
 
-  console.log('[Celestial] Order result:', JSON.stringify(result, null, 2));
+  console.log('[APIGames] Order result:', JSON.stringify(result, null, 2));
 
   if (result.success && result.data) {
     await supabaseServer
       .from('transactions')
       .update({
-        celestial_trx_id: result.data.trx_id,
+        apigames_trx_id: result.data.ref_id || result.data.trx_id || transactionId,
         fulfillment_status: 'processing',
       })
       .eq('id', transactionId);
 
-    console.log('[Celestial] Order created:', result.data.trx_id);
+    console.log('[APIGames] Order created:', result.data);
   } else {
     await supabaseServer
       .from('transactions')
       .update({
         fulfillment_status: 'failed',
-        delivery_sn: result.message || 'Order failed',
+        delivery_sn: result.message || result.error || 'Order failed',
       })
       .eq('id', transactionId);
 
-    console.error('[Celestial] Order failed:', result.message);
+    console.error('[APIGames] Order failed:', result.message || result.error);
   }
 }

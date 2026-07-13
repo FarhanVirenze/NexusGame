@@ -42,7 +42,7 @@ export default function GameItemsModal({ game, onClose }) {
   }, [game]);
 
   const handleSync = async () => {
-    if (!confirm('Sync produk dari Celestial? Produk baru akan ditambahkan dan harga akan diperbarui.')) return;
+    if (!confirm('Sync produk dari provider? Produk baru akan ditambahkan dan harga akan diperbarui.')) return;
     
     setSyncing(true);
     try {
@@ -184,7 +184,7 @@ export default function GameItemsModal({ game, onClose }) {
                     className="bg-tertiary text-on-tertiary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-tertiary/90 transition-colors disabled:opacity-50"
                   >
                     <span className={`material-symbols-outlined text-[18px] ${syncing ? 'animate-spin' : ''}`}>{syncing ? 'progress_activity' : 'sync'}</span> 
-                    {syncing ? 'Syncing...' : 'Sync Celestial'}
+                    {syncing ? 'Syncing...' : 'Sync Products'}
                   </button>
                   <button 
                     onClick={openCreateForm}
@@ -236,7 +236,7 @@ export default function GameItemsModal({ game, onClose }) {
                           <td className="p-4 text-sm text-on-surface-variant">{item.category}</td>
                           <td className="p-4 text-sm font-semibold text-on-surface">Rp {Number(item.price).toLocaleString('id-ID')}</td>
                           <td className="p-4 text-xs text-on-surface-variant">
-                            {item.celestial_price ? `Rp ${Number(item.celestial_price).toLocaleString('id-ID')}` : '-'}
+                            {item.apigames_price ? `Rp ${Number(item.apigames_price).toLocaleString('id-ID')}` : '-'}
                           </td>
                           <td className="p-4 text-right">
                             <button onClick={() => openEditForm(item)} className="p-1.5 text-on-surface-variant hover:text-primary transition-colors">
@@ -271,8 +271,8 @@ export default function GameItemsModal({ game, onClose }) {
                     value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                 </div>
                 <div className="col-span-full md:col-span-1">
-                  <label className="block text-sm font-medium text-on-surface-variant mb-1">SKU (Celestial)</label>
-                  <input type="text" placeholder="e.g. ML3, ML12, MLIF1" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50 font-mono"
+                  <label className="block text-sm font-medium text-on-surface-variant mb-1">SKU (Provider)</label>
+                  <input type="text" placeholder="e.g. ML86, FF50, GPGI60" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50 font-mono"
                     value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} />
                 </div>
                 <div className="col-span-full md:col-span-1">
