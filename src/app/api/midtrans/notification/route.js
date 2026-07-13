@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import crypto from 'crypto';
-import { createOrder, getSkuForItem } from '@/lib/celestial';
+import { createOrder, getSkuForItem, getBalance, createDeposit } from '@/lib/celestial';
 
 // Midtrans will call this endpoint when payment status changes
 // URL: https://yourdomain.com/api/midtrans/notification
@@ -171,6 +171,63 @@ async function processCelestialOrder(transactionId) {
     .from('transactions')
     .update({ fulfillment_status: 'processing' })
     .eq('id', transactionId);
+
+  const itemCelestialPrice = transaction.game_items?.celestial_price || 0;
+
+  if (itemCelestialPrice > 0) {
+    const saldo = await getBalance();
+
+    if (saldo === null) {
+      console.error('[Celestial] Failed to fetch balance for transaction:', transactionId);
+      await supabaseServer
+        .from('transactions')
+        .update({ fulfillment_status: 'failed', delivery_sn: 'Gagal cek saldo Celestial' })
+        .eq('id', transactionId);
+      return;
+    }
+
+    if (saldo < itemCelestialPrice) {
+      console.log(`[Celestial] Insufficient balance: ${saldo} < ${itemCelestialPrice}. Creating deposit...`);
+
+      const depositAmount = Math.max(10000, itemCelestialPrice - saldo);
+      const depositCallbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/celestial/deposit-webhook`;
+
+      const depositResult = await createDeposit({
+        jumlah: depositAmount,
+        callbackUrl: depositCallbackUrl,
+      });
+
+      console.log('[Celestial] Deposit result:', JSON.stringify(depositResult, null, 2));
+
+      if (depositResult.success && depositResult.data) {
+        await supabaseServer
+          .from('transactions')
+          .update({
+            fulfillment_status: 'waiting_deposit',
+            celestial_deposit_id: depositResult.data.deposit_id,
+            celestial_deposit_status: 'unpaid',
+            celestial_deposit_qr: depositResult.data.qr_image,
+            delivery_sn: `Menunggu deposit Rp ${depositAmount.toLocaleString('id-ID')} (ID: ${depositResult.data.deposit_id})`,
+          })
+          .eq('id', transactionId);
+
+        console.log(`[Celestial] Deposit created: ${depositResult.data.deposit_id}, waiting for admin payment`);
+      } else {
+        await supabaseServer
+          .from('transactions')
+          .update({
+            fulfillment_status: 'failed',
+            delivery_sn: 'Gagal membuat deposit: ' + (depositResult.error || depositResult.message || 'Unknown error'),
+          })
+          .eq('id', transactionId);
+
+        console.error('[Celestial] Deposit failed:', depositResult);
+      }
+      return;
+    }
+
+    console.log(`[Celestial] Balance OK: ${saldo} >= ${itemCelestialPrice}`);
+  }
 
   const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/celestial/webhook`;
 

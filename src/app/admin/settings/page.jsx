@@ -1,6 +1,7 @@
 "use client"
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import CelestialBalanceCard from '@/components/admin/CelestialBalanceCard';
 
 export default function AdminSettingsPage() {
   const [profile, setProfile] = useState(null);
@@ -281,6 +282,9 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         </section>
+
+        {/* Celestial Balance Section */}
+        <CelestialBalanceCard />
 
       </div>
     </main>

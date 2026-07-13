@@ -82,6 +82,12 @@ export async function fetchProducts() {
   }
 }
 
+export async function getBalance() {
+  const profile = await fetchProfile();
+  if (!profile.success) return null;
+  return profile.data?.saldo || 0;
+}
+
 export async function createOrder({ refId, sku, target, zoneId, callbackUrl }) {
   const envCheck = checkEnvVars();
   if (!envCheck.ok) {
@@ -126,22 +132,36 @@ export async function checkStatus(trxId) {
 }
 
 export async function createDeposit({ jumlah, callbackUrl }) {
-  const body = {
-    api_key: CELESTIAL_API_KEY,
-    signature: generateSignature(),
-    jumlah,
-  };
-
-  if (callbackUrl) {
-    body.callback_url = callbackUrl;
+  const envCheck = checkEnvVars();
+  if (!envCheck.ok) {
+    return { success: false, error: envCheck.error };
   }
 
-  const res = await fetch(`${CELESTIAL_BASE_URL}/deposit`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return res.json();
+  try {
+    const body = {
+      api_key: CELESTIAL_API_KEY,
+      signature: generateSignature(),
+      jumlah,
+    };
+
+    if (callbackUrl) {
+      body.callback_url = callbackUrl;
+    }
+
+    const res = await fetch(`${CELESTIAL_BASE_URL}/deposit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      let bodyText = '';
+      try { bodyText = await res.text(); } catch {}
+      return { success: false, error: `Celestial API HTTP ${res.status}: ${res.statusText} | ${bodyText}` };
+    }
+    return res.json();
+  } catch (err) {
+    return { success: false, error: `Celestial deposit failed: ${err.message}` };
+  }
 }
 
 export async function checkDepositStatus(depositId) {
