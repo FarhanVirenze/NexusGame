@@ -81,12 +81,14 @@ export async function createOrder({ refId, sku, target, zoneId, callbackUrl }) {
     const data = await res.json();
     console.log('[APIGames] createOrder response:', JSON.stringify(data, null, 2));
 
-    if (!res.ok) {
-      const errMsg = data.message || data.error || data.errors?.join(', ') || `APIGames HTTP ${res.status}`;
+    // APIGames returns HTTP 200 even on errors — check body status field
+    // status: 1 = success, status: 0 = error
+    if (!res.ok || data.status === 0 || data.error_msg) {
+      const errMsg = data.error_msg || data.message || data.error || `APIGames HTTP ${res.status}`;
       return { success: false, error: errMsg, raw: data };
     }
 
-    return { success: true, data, raw: data };
+    return { success: true, data: data.data || data, raw: data };
   } catch (err) {
     return { success: false, error: `APIGames order failed: ${err.message}` };
   }
@@ -100,7 +102,7 @@ export async function checkStatus(refId) {
 
   try {
     const signature = generateSignature(refId);
-    const url = `${APIGAMES_BASE_URL}/v2/transaksi/status?ref_id=${refId}&signature=${signature}`;
+    const url = `${APIGAMES_BASE_URL}/v2/transaksi/status?merchant_id=${APIGAMES_MERCHANT_ID}&ref_id=${refId}&signature=${signature}`;
     const res = await fetch(url, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
@@ -113,7 +115,14 @@ export async function checkStatus(refId) {
     }
 
     const data = await res.json();
-    return data;
+    
+    // Status 0 means error
+    if (!res.ok || data.status === 0 || data.error_msg) {
+      const errMsg = data.error_msg || data.message || data.error || `APIGames HTTP ${res.status}`;
+      return { success: false, error: errMsg, raw: data };
+    }
+
+    return { success: true, data: data.data || data, raw: data };
   } catch (err) {
     return { success: false, error: `APIGames status check failed: ${err.message}` };
   }

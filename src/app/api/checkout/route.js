@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { verifyAuth } from '@/lib/auth';
+import { getBalance } from '@/lib/apigames';
 
 export async function POST(request) {
   try {
@@ -24,6 +25,18 @@ export async function POST(request) {
 
     if (!serverKey || !merchantId) {
       return NextResponse.json({ error: 'Midtrans not configured' }, { status: 500 });
+    }
+
+    // [NEW] Cek saldo APIGames sebelum mengizinkan checkout
+    const apigamesBalance = await getBalance();
+    if (apigamesBalance === null) {
+      return NextResponse.json({ error: 'Sistem sedang gangguan (gagal cek stok).' }, { status: 500 });
+    }
+    
+    // Asumsi: Modal APIGames pasti lebih kecil dari harga jual (price).
+    // Jadi cek saldo >= harga jual adalah proteksi yang sangat aman.
+    if (apigamesBalance < price) {
+      return NextResponse.json({ error: 'Maaf, stok produk sedang kosong atau sistem sedang maintenance.' }, { status: 400 });
     }
 
     // 1. Create transaction in Supabase

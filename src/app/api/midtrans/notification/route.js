@@ -184,20 +184,18 @@ async function processApiGamesOrder(transactionId) {
 
   console.log('[APIGames] Order result:', JSON.stringify(result, null, 2));
 
-  const orderSuccess = result.success === true || result.status === 'success' || result.data?.status === 'success';
-
-  if (orderSuccess && result.data) {
+  if (result.success && result.data) {
     await supabaseServer
       .from('transactions')
       .update({
-        apigames_trx_id: result.data.ref_id || result.data.trx_id || transactionId,
+        apigames_trx_id: result.data.trx_id || result.data.ref_id || transactionId,
         fulfillment_status: 'processing',
       })
       .eq('id', transactionId);
 
     console.log('[APIGames] Order created:', result.data);
   } else {
-    const failMsg = result.message || result.error || result.data?.message || result.data?.error || 'Order failed';
+    const failMsg = result.error || result.raw?.error_msg || result.data?.message || 'Order failed';
     console.error('[APIGames] Order FAILED:', failMsg, '| SKU:', sku, '| Target:', userId, '| Zone:', zoneId, '| Full response:', JSON.stringify(result));
     await supabaseServer
       .from('transactions')
