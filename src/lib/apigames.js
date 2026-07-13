@@ -62,20 +62,15 @@ export async function createOrder({ refId, sku, target, zoneId, callbackUrl }) {
 
   try {
     const body = {
-      merchant: APIGAMES_MERCHANT_ID,
-      sku,
-      target,
       ref_id: refId,
+      merchant_id: APIGAMES_MERCHANT_ID,
+      produk: sku,
+      tujuan: String(target),
+      server_id: zoneId ? String(zoneId) : '',
       signature: generateSignature(refId),
     };
 
-    if (zoneId) {
-      body.zone = zoneId;
-    }
-
-    if (callbackUrl) {
-      body.callback_url = callbackUrl;
-    }
+    console.log('[APIGames] Request body:', JSON.stringify(body, null, 2));
 
     const res = await fetch(`${APIGAMES_BASE_URL}/v2/transaksi`, {
       method: 'POST',
