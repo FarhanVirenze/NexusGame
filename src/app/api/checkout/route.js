@@ -60,7 +60,7 @@ export async function POST(request) {
       },
       item_details: [{
         id: gameId,
-        name: `Top Up ${itemName} - ${playerInfo}`,
+        name: `Top Up ${itemName}`.slice(0, 50),
         price: price,
         quantity: 1,
       }],
