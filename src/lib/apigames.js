@@ -42,7 +42,14 @@ export async function fetchProfile() {
     }
 
     const data = await res.json();
-    return data;
+    
+    // Status 0 means error in APIGames
+    if (!res.ok || data.status === 0 || data.error_msg) {
+      const errMsg = data.error_msg || data.message || data.error || `APIGames HTTP ${res.status}`;
+      return { success: false, error: errMsg, raw: data };
+    }
+
+    return { success: true, data: data.data || data, raw: data };
   } catch (err) {
     return { success: false, error: `APIGames fetch failed: ${err.message}` };
   }
