@@ -170,6 +170,8 @@ async function processApiGamesOrder(transactionId) {
     .update({ fulfillment_status: 'processing' })
     .eq('id', transactionId);
 
+  console.log('[APIGames] Sending order | SKU:', sku, '| Target:', userId, '| Zone:', zoneId, '| RefId:', transactionId);
+
   const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/apigames/webhook`;
 
   const result = await createOrder({
@@ -182,7 +184,9 @@ async function processApiGamesOrder(transactionId) {
 
   console.log('[APIGames] Order result:', JSON.stringify(result, null, 2));
 
-  if (result.success && result.data) {
+  const orderSuccess = result.success === true || result.status === 'success' || result.data?.status === 'success';
+
+  if (orderSuccess && result.data) {
     await supabaseServer
       .from('transactions')
       .update({
@@ -193,14 +197,14 @@ async function processApiGamesOrder(transactionId) {
 
     console.log('[APIGames] Order created:', result.data);
   } else {
+    const failMsg = result.message || result.error || result.data?.message || result.data?.error || 'Order failed';
+    console.error('[APIGames] Order FAILED:', failMsg, '| SKU:', sku, '| Target:', userId, '| Zone:', zoneId, '| Full response:', JSON.stringify(result));
     await supabaseServer
       .from('transactions')
       .update({
         fulfillment_status: 'failed',
-        delivery_sn: result.message || result.error || 'Order failed',
+        delivery_sn: failMsg,
       })
       .eq('id', transactionId);
-
-    console.error('[APIGames] Order failed:', result.message || result.error);
   }
 }

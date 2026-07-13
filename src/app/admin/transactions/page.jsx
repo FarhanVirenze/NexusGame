@@ -12,6 +12,7 @@ export default function TransactionsComponent() {
   const [sortField, setSortField] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [retryingId, setRetryingId] = useState(null);
   const perPage = 10;
 
   useEffect(() => {
@@ -130,15 +131,40 @@ export default function TransactionsComponent() {
     { label: 'Expired', value: expiredCount, icon: 'schedule', color: 'bg-gray-100 text-gray-600' },
   ];
 
+  const handleRetryOrder = async (transactionId) => {
+    if (!confirm('Retry kirim order ini ke APIGames?')) return;
+    setRetryingId(transactionId);
+    try {
+      const res = await adminFetch('/api/admin/retry-order', {
+        method: 'POST',
+        body: JSON.stringify({ transactionId }),
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        alert('Order berhasil dikirim ulang!');
+        setTransactions(prev => prev.map(tx =>
+          tx.id === transactionId ? { ...tx, fulfillment_status: 'processing', delivery_sn: null } : tx
+        ));
+      } else {
+        alert('Gagal: ' + (result.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
   const handleExportCSV = () => {
     const escapeCSV = (cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`;
-    const headers = ['Order ID', 'Game', 'User Email', 'Amount', 'Status', 'Date'];
+    const headers = ['Order ID', 'Game', 'User Email', 'Amount', 'Status', 'Delivery', 'Date'];
     const rows = filtered.map(tx => [
       tx.id,
       tx.games?.title || 'Unknown Game',
       tx.users?.email || 'Unknown User',
       tx.amount,
       tx.status,
+      tx.fulfillment_status || '-',
       new Date(tx.created_at).toLocaleString('id-ID'),
     ]);
 
@@ -223,34 +249,28 @@ export default function TransactionsComponent() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[900px]">
                 <thead>
-                  <tr className="border-b border-outline-variant bg-surface-container-lowest/50">
-                    <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Transaction ID</th>
-                    <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider cursor-pointer select-none hover:text-primary transition-colors" onClick={() => toggleSort('game')}>
-                      <span className="inline-flex items-center">Game<SortIcon field="game" /></span>
-                    </th>
-                    <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">User Email</th>
-                    <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider cursor-pointer select-none hover:text-primary transition-colors" onClick={() => toggleSort('amount')}>
-                      <span className="inline-flex items-center">Amount<SortIcon field="amount" /></span>
-                    </th>
-                    <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider cursor-pointer select-none hover:text-primary transition-colors" onClick={() => toggleSort('status')}>
-                      <span className="inline-flex items-center">Status<SortIcon field="status" /></span>
-                    </th>
-                    <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider cursor-pointer select-none hover:text-primary transition-colors" onClick={() => toggleSort('created_at')}>
-                      <span className="inline-flex items-center">Date<SortIcon field="created_at" /></span>
-                    </th>
-                  </tr>
+                    <tr className="border-b border-outline-variant bg-surface-container-lowest/50">
+                      <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Transaction ID</th>
+                      <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Game</th>
+                      <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">User Email</th>
+                      <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Amount</th>
+                      <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Status</th>
+                      <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Delivery</th>
+                      <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Date</th>
+                      <th className="p-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Aksi</th>
+                    </tr>
                 </thead>
                 <tbody className="font-body-md text-body-md">
                   {loading ? (
                     <tr>
-                      <td colSpan="6" className="py-12 text-center text-on-surface-variant">
+                      <td colSpan="8" className="py-12 text-center text-on-surface-variant">
                         <span className="material-symbols-outlined animate-spin text-3xl">progress_activity</span>
                         <p className="mt-3">Loading transactions...</p>
                       </td>
                     </tr>
                   ) : paginated.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="py-12 text-center text-on-surface-variant">
+                      <td colSpan="8" className="py-12 text-center text-on-surface-variant">
                         <span className="material-symbols-outlined text-4xl mb-2">search_off</span>
                         <p className="mt-2">{searchQuery || statusFilter !== 'all' ? 'No transactions match your filters.' : 'No transactions found.'}</p>
                       </td>
@@ -285,8 +305,39 @@ export default function TransactionsComponent() {
                             </span>
                           )}
                         </td>
+                        <td className="p-4">
+                          {tx.fulfillment_status === 'completed' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#e6f4ea] text-[#137333]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#137333]"></span> Terkirim
+                            </span>
+                          ) : tx.fulfillment_status === 'processing' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#fef7e0] text-[#b06000]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#b06000]"></span> Diproses
+                            </span>
+                          ) : tx.fulfillment_status === 'failed' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#fce8e6] text-[#c5221f]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#c5221f]"></span> Gagal{tx.delivery_sn ? `: ${tx.delivery_sn}` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-on-surface-variant">-</span>
+                          )}
+                        </td>
                         <td className="p-4 text-on-surface-variant text-sm">
                           {new Date(tx.created_at).toLocaleString('id-ID')}
+                        </td>
+                        <td className="p-4">
+                          {tx.status === 'completed' && tx.fulfillment_status === 'failed' && (
+                            <button
+                              onClick={() => handleRetryOrder(tx.id)}
+                              disabled={retryingId === tx.id}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium disabled:opacity-50"
+                            >
+                              <span className={`material-symbols-outlined text-[14px] ${retryingId === tx.id ? 'animate-spin' : ''}`}>
+                                {retryingId === tx.id ? 'progress_activity' : 'refresh'}
+                              </span>
+                              {retryingId === tx.id ? 'Mengirim...' : 'Retry'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

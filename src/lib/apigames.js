@@ -83,14 +83,15 @@ export async function createOrder({ refId, sku, target, zoneId, callbackUrl }) {
       body: JSON.stringify(body),
     });
 
+    const data = await res.json();
+    console.log('[APIGames] createOrder response:', JSON.stringify(data, null, 2));
+
     if (!res.ok) {
-      let bodyText = '';
-      try { bodyText = await res.text(); } catch {}
-      return { success: false, error: `APIGames HTTP ${res.status}: ${res.statusText} | ${bodyText}` };
+      const errMsg = data.message || data.error || data.errors?.join(', ') || `APIGames HTTP ${res.status}`;
+      return { success: false, error: errMsg, raw: data };
     }
 
-    const data = await res.json();
-    return data;
+    return { success: true, data, raw: data };
   } catch (err) {
     return { success: false, error: `APIGames order failed: ${err.message}` };
   }
