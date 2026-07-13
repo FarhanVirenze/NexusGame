@@ -1,7 +1,12 @@
--- Migration: Clean up Celestial → APIGames columns
+-- Migration: Add APIGames columns + provider + cleanup Celestial
 -- Run this in Supabase SQL Editor
 
--- 1. game_items: drop old celestial_price if apigames_price already exists
+-- 1. game_items: tambah kolom provider
+ALTER TABLE game_items ADD COLUMN IF NOT EXISTS provider TEXT;
+CREATE INDEX IF NOT EXISTS idx_game_items_provider ON game_items(provider);
+COMMENT ON COLUMN game_items.provider IS 'Product provider: Smile One, Unipin ID, Gamepoint, etc.';
+
+-- 2. game_items: bersihkan celestial_price → apigames_price
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'game_items' AND column_name = 'celestial_price')
@@ -16,7 +21,7 @@ END $$;
 
 COMMENT ON COLUMN game_items.apigames_price IS 'Original cost from APIGames.id';
 
--- 2. transactions: drop old celestial_trx_id if apigames_trx_id already exists
+-- 3. transactions: bersihkan celestial_trx_id → apigames_trx_id
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'transactions' AND column_name = 'celestial_trx_id')
@@ -32,7 +37,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_transactions_apigames_trx_id ON transactions(apigames_trx_id);
 COMMENT ON COLUMN transactions.apigames_trx_id IS 'Transaction ID from APIGames.id API';
 
--- 3. Drop unused Celestial deposit columns
+-- 4. Hapus kolom deposit Celestial yang ga kepake
 ALTER TABLE transactions DROP COLUMN IF EXISTS celestial_deposit_id;
 ALTER TABLE transactions DROP COLUMN IF EXISTS celestial_deposit_status;
 ALTER TABLE transactions DROP COLUMN IF EXISTS celestial_deposit_qr;

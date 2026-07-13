@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { adminFetch } from '@/lib/adminFetch';
 
@@ -6,11 +6,11 @@ export default function GameItemsModal({ game, onClose }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  
-  // Form state for new/edit item
+  const [providerFilter, setProviderFilter] = useState('all');
+
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState('create');
-  const [formData, setFormData] = useState({ id: '', name: '', price: '', category: '', bonus: '', icon_url: '', sku: '' });
+  const [formData, setFormData] = useState({ id: '', name: '', price: '', category: '', bonus: '', icon_url: '', sku: '', provider: '' });
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
@@ -21,12 +21,11 @@ export default function GameItemsModal({ game, onClose }) {
       const res = await adminFetch(`/api/admin/data?table=game_items&game_id=${game.id}`);
       if (!res.ok) throw new Error('Failed to fetch items');
       let data = await res.json();
-      
-      // Filter manually if API doesn't support game_id filter
+
       if (Array.isArray(data)) {
         data = data.filter(item => item.game_id === game.id);
       }
-      
+
       setItems(data || []);
     } catch (err) {
       console.error(err);
@@ -41,9 +40,23 @@ export default function GameItemsModal({ game, onClose }) {
     }
   }, [game]);
 
+  const providers = useMemo(() => {
+    const set = new Set(items.map(i => i.provider).filter(Boolean));
+    return Array.from(set).sort();
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    let result = [...items];
+    if (providerFilter !== 'all') {
+      result = result.filter(i => i.provider === providerFilter);
+    }
+    result.sort((a, b) => Number(a.price) - Number(b.price));
+    return result;
+  }, [items, providerFilter]);
+
   const handleSync = async () => {
-    if (!confirm('Sync produk dari provider? Produk baru akan ditambahkan dan harga akan diperbarui.')) return;
-    
+    if (!confirm('Sync semua produk dari semua provider? Produk baru akan ditambahkan dan harga akan diperbarui.')) return;
+
     setSyncing(true);
     try {
       const res = await adminFetch('/api/admin/sync-products', {
@@ -51,7 +64,7 @@ export default function GameItemsModal({ game, onClose }) {
         body: JSON.stringify({ gameId: game.id }),
       });
       const result = await res.json();
-      
+
       if (res.ok && result.success) {
         alert(result.message);
         await fetchItems();
@@ -67,7 +80,7 @@ export default function GameItemsModal({ game, onClose }) {
 
   const openCreateForm = () => {
     setFormMode('create');
-    setFormData({ id: '', name: '', price: '', category: 'Diamonds', bonus: '', icon_url: '', sku: '' });
+    setFormData({ id: '', name: '', price: '', category: 'Diamonds', bonus: '', icon_url: '', sku: '', provider: '' });
     setShowForm(true);
   };
 
@@ -93,6 +106,7 @@ export default function GameItemsModal({ game, onClose }) {
         bonus: formData.bonus,
         icon_url: formData.icon_url,
         sku: formData.sku || null,
+        provider: formData.provider || null,
       };
 
       if (formMode === 'create') {
@@ -110,7 +124,7 @@ export default function GameItemsModal({ game, onClose }) {
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Failed to update item');
       }
-      
+
       await fetchItems();
       setShowForm(false);
     } catch (err) {
@@ -161,11 +175,11 @@ export default function GameItemsModal({ game, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-surface rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-surface rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest">
           <div>
             <h2 className="font-headline-md text-headline-md text-on-surface">Manage Items</h2>
-            <p className="font-caption text-caption text-on-surface-variant">Game: {game.title}</p>
+            <p className="font-caption text-caption text-on-surface-variant">Game: {game.title} | {filteredItems.length} produk</p>
           </div>
           <button onClick={onClose} className="text-on-surface-variant hover:text-error transition-colors">
             <span className="material-symbols-outlined">close</span>
@@ -175,18 +189,18 @@ export default function GameItemsModal({ game, onClose }) {
         <div className="flex-1 overflow-y-auto p-6 bg-background">
           {!showForm ? (
             <>
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="font-title-md text-on-surface">Available Denominations</h3>
+              <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+                <h3 className="font-title-md text-on-surface">Daftar Produk</h3>
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={handleSync}
                     disabled={syncing}
                     className="bg-tertiary text-on-tertiary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-tertiary/90 transition-colors disabled:opacity-50"
                   >
-                    <span className={`material-symbols-outlined text-[18px] ${syncing ? 'animate-spin' : ''}`}>{syncing ? 'progress_activity' : 'sync'}</span> 
-                    {syncing ? 'Syncing...' : 'Sync Products'}
+                    <span className={`material-symbols-outlined text-[18px] ${syncing ? 'animate-spin' : ''}`}>{syncing ? 'progress_activity' : 'sync'}</span>
+                    {syncing ? 'Syncing...' : 'Sync All Providers'}
                   </button>
-                  <button 
+                  <button
                     onClick={openCreateForm}
                     className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-primary/90 transition-colors"
                   >
@@ -195,33 +209,67 @@ export default function GameItemsModal({ game, onClose }) {
                 </div>
               </div>
 
+              {providers.length > 0 && (
+                <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                  <button
+                    onClick={() => setProviderFilter('all')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                      providerFilter === 'all'
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-surface-container border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                    }`}
+                  >
+                    Semua ({items.length})
+                  </button>
+                  {providers.map(p => {
+                    const count = items.filter(i => i.provider === p).length;
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setProviderFilter(p)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                          providerFilter === p
+                            ? 'bg-primary text-on-primary'
+                            : 'bg-surface-container border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                        }`}
+                      >
+                        {p} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {loading ? (
                 <div className="py-12 text-center text-on-surface-variant flex flex-col items-center">
                   <span className="material-symbols-outlined animate-spin text-3xl mb-2">progress_activity</span>
                   <p>Loading items...</p>
                 </div>
-              ) : items.length === 0 ? (
+              ) : filteredItems.length === 0 ? (
                 <div className="py-12 text-center bg-surface-container-lowest rounded-xl border border-outline-variant/30">
                   <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-2">inventory_2</span>
-                  <p className="text-on-surface-variant">No items found for this game.</p>
+                  <p className="text-on-surface-variant">
+                    {providerFilter !== 'all' ? `Tidak ada produk dari ${providerFilter}.` : 'Belum ada produk. Klik Sync All Providers untuk mulai.'}
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto bg-surface-container-lowest rounded-xl border border-outline-variant/30">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-outline-variant/30 bg-surface-container/30">
-                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Item Name</th>
-                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">SKU</th>
-                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Category</th>
-                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Price</th>
-                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Modal</th>
-                        <th className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+                        <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Item Name</th>
+                        <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">SKU</th>
+                        <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Provider</th>
+                        <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Category</th>
+                        <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Harga Jual</th>
+                        <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Modal</th>
+                        <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-outline-variant/20">
-                      {items.map(item => (
+                      {filteredItems.map(item => (
                         <tr key={item.id} className="hover:bg-surface-container/50 transition-colors">
-                          <td className="p-4 font-medium text-on-surface flex items-center gap-2">
+                          <td className="p-3 font-medium text-on-surface flex items-center gap-2">
                             {item.icon_url ? (
                               <img src={item.icon_url} alt="icon" className="w-6 h-6 object-contain" />
                             ) : (
@@ -232,13 +280,22 @@ export default function GameItemsModal({ game, onClose }) {
                               {item.bonus && <div className="text-xs text-tertiary">Bonus: {item.bonus}</div>}
                             </div>
                           </td>
-                          <td className="p-4 text-xs font-mono text-on-surface-variant">{item.sku || '-'}</td>
-                          <td className="p-4 text-sm text-on-surface-variant">{item.category}</td>
-                          <td className="p-4 text-sm font-semibold text-on-surface">Rp {Number(item.price).toLocaleString('id-ID')}</td>
-                          <td className="p-4 text-xs text-on-surface-variant">
+                          <td className="p-3 text-xs font-mono text-on-surface-variant">{item.sku || '-'}</td>
+                          <td className="p-3">
+                            {item.provider ? (
+                              <span className="inline-block px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-semibold">
+                                {item.provider}
+                              </span>
+                            ) : (
+                              <span className="text-on-surface-variant text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-sm text-on-surface-variant">{item.category}</td>
+                          <td className="p-3 text-sm font-semibold text-on-surface">Rp {Number(item.price).toLocaleString('id-ID')}</td>
+                          <td className="p-3 text-xs text-on-surface-variant">
                             {item.apigames_price ? `Rp ${Number(item.apigames_price).toLocaleString('id-ID')}` : '-'}
                           </td>
-                          <td className="p-4 text-right">
+                          <td className="p-3 text-right">
                             <button onClick={() => openEditForm(item)} className="p-1.5 text-on-surface-variant hover:text-primary transition-colors">
                               <span className="material-symbols-outlined text-[18px]">edit</span>
                             </button>
@@ -271,7 +328,7 @@ export default function GameItemsModal({ game, onClose }) {
                     value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                 </div>
                 <div className="col-span-full md:col-span-1">
-                  <label className="block text-sm font-medium text-on-surface-variant mb-1">SKU (Provider)</label>
+                  <label className="block text-sm font-medium text-on-surface-variant mb-1">SKU</label>
                   <input type="text" placeholder="e.g. ML86, FF50, GPGI60" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50 font-mono"
                     value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} />
                 </div>
@@ -281,14 +338,19 @@ export default function GameItemsModal({ game, onClose }) {
                     value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
                 </div>
                 <div className="col-span-full md:col-span-1">
-                  <label className="block text-sm font-medium text-on-surface-variant mb-1">Category (Tab Group)</label>
-                  <input type="text" placeholder="e.g. Diamonds, Weekly Diamond Pass" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
+                  <label className="block text-sm font-medium text-on-surface-variant mb-1">Category</label>
+                  <input type="text" placeholder="e.g. Diamonds, Weekly Pass" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
                     value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
+                </div>
+                <div className="col-span-full md:col-span-1">
+                  <label className="block text-sm font-medium text-on-surface-variant mb-1">Provider</label>
+                  <input type="text" placeholder="e.g. Smile One, Unipin ID" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
+                    value={formData.provider || ''} onChange={e => setFormData({...formData, provider: e.target.value})} />
                 </div>
                 <div className="col-span-full md:col-span-1">
                   <label className="block text-sm font-medium text-on-surface-variant mb-1">Bonus Text (Optional)</label>
                   <input type="text" placeholder="e.g. 11+1" className="w-full bg-surface border border-outline-variant/50 rounded-lg px-4 py-2 text-on-surface focus:ring-2 focus:ring-primary/50"
-                    value={formData.bonus} onChange={e => setFormData({...formData, bonus: e.target.value})} />
+                    value={formData.bonus || ''} onChange={e => setFormData({...formData, bonus: e.target.value})} />
                 </div>
                 <div className="col-span-full">
                   <label className="block text-sm font-medium text-on-surface-variant mb-1">Icon Image (Optional)</label>
@@ -296,7 +358,7 @@ export default function GameItemsModal({ game, onClose }) {
                     {formData.icon_url && (
                       <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-outline-variant/30 bg-surface-container-lowest flex-shrink-0">
                         <img src={formData.icon_url} alt="Icon Preview" className="w-full h-full object-cover" />
-                        <button 
+                        <button
                           type="button"
                           onClick={() => setFormData({...formData, icon_url: ''})}
                           className="absolute top-1 right-1 bg-error/90 text-on-error rounded-full p-0.5 hover:bg-error transition-colors shadow-sm"
@@ -306,15 +368,15 @@ export default function GameItemsModal({ game, onClose }) {
                       </div>
                     )}
                     <div className="flex-1">
-                      <input 
-                        type="file" 
+                      <input
+                        type="file"
                         accept="image/*"
                         onChange={handleImageUpload}
                         ref={fileInputRef}
                         className="hidden"
                         id="icon-upload"
                       />
-                      <label 
+                      <label
                         htmlFor="icon-upload"
                         className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors ${uploadingImage ? 'opacity-50 pointer-events-none' : ''}`}
                       >
@@ -323,13 +385,10 @@ export default function GameItemsModal({ game, onClose }) {
                         </span>
                         {uploadingImage ? 'Uploading...' : 'Choose Image'}
                       </label>
-                      <p className="text-caption font-caption text-on-surface-variant mt-2">
-                        Upload an icon to represent this item (e.g., Diamond, Coin, Pass).
-                      </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="col-span-full flex justify-end gap-3 mt-4">
                   <button type="button" onClick={closeForm} className="px-4 py-2 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors">Cancel</button>
                   <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors flex items-center gap-2">

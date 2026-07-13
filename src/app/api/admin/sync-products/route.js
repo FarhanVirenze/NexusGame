@@ -5,13 +5,28 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 const GAME_OPERATOR_MAP = {
-  'Free Fire': 1,
-  'Mobile Legends': 2,
-  'Genshin Impact': 19,
-  'Valorant': 92,
+  'Free Fire': [1, 8, 11, 36, 122],
+  'Mobile Legends': [2, 6, 9, 16, 21, 22, 35, 38, 121, 129, 130, 132],
+  'Mobile Legends: Bang Bang': [2, 6, 9, 16, 21, 22, 35, 38, 121, 129, 130, 132],
+  'Genshin Impact': [19, 23, 63],
+  'Valorant': [92],
+};
+
+const PROVIDER_NAMES = {
+  1: 'Smile One', 8: 'DG', 11: 'Unipin ID', 36: 'DGR', 122: 'DGH',
+  2: 'Smile One', 6: 'ZID', 9: 'Unipin ID', 16: 'Gamepoint',
+  21: 'Unipin BR', 22: 'Unipin MY', 35: 'DGR', 38: 'Unipin PH',
+  121: 'KCID', 129: 'Gamepoint ID', 130: 'Smile Non Indo', 132: 'DGHOST',
+  19: 'Gamepoint', 23: 'Unipin MY', 63: 'Unipin PH',
+  92: 'Gamepoint',
 };
 
 const MARKUP = 1.30;
+
+function normalizeGameTitle(title) {
+  if (title === 'Mobile Legends: Bang Bang') return 'Mobile Legends';
+  return title;
+}
 
 function categorizeProduct(name, gameTitle) {
   const lower = name.toLowerCase();
@@ -24,7 +39,7 @@ function categorizeProduct(name, gameTitle) {
 
   if (gameTitle === 'Mobile Legends') {
     if (lower.includes('twilight')) return 'Twilight Pass';
-    if (lower.includes('weekly pass') || lower.includes('weekly diamond')) return 'Weekly Pass';
+    if (lower.includes('weekly pass') || lower.includes('weekly diamond') || lower.includes('weekly pass')) return 'Weekly Pass';
     if (lower.includes('passe de grande valor') || lower.includes('first top up')) return 'First Top Up';
     return 'Diamonds';
   }
@@ -46,7 +61,7 @@ function extractBonus(name) {
   return match ? match[1] : null;
 }
 
-function extractDiamondQty(name) {
+function extractQty(name) {
   const match = name.match(/(\d+)/);
   return match ? parseInt(match[1]) : 0;
 }
@@ -75,8 +90,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Game tidak ditemukan' }, { status: 404 });
     }
 
-    const operatorId = GAME_OPERATOR_MAP[game.title];
-    if (!operatorId) {
+    const normalizedTitle = normalizeGameTitle(game.title);
+    const operatorIds = GAME_OPERATOR_MAP[game.title] || GAME_OPERATOR_MAP[normalizedTitle];
+    if (!operatorIds) {
       return NextResponse.json({ error: `Game "${game.title}" tidak didukung untuk sync` }, { status: 400 });
     }
 
@@ -90,7 +106,7 @@ export async function POST(request) {
     }
 
     const filteredProducts = products.filter(p =>
-      p.operator_id === operatorId && p.status === 'aktif'
+      operatorIds.includes(p.operator_id) && p.status === 'aktif'
     );
 
     let synced = 0;
@@ -100,9 +116,10 @@ export async function POST(request) {
       const basePrice = product.harga_rupiah;
       const sellPrice = Math.ceil(basePrice * MARKUP / 100) * 100;
 
-      const category = categorizeProduct(product.nama, game.title);
+      const category = categorizeProduct(product.nama, normalizedTitle);
       const bonus = extractBonus(product.nama);
-      const diamondQty = extractDiamondQty(product.nama);
+      const qty = extractQty(product.nama);
+      const provider = PROVIDER_NAMES[product.operator_id] || `Provider ${product.operator_id}`;
 
       return {
         game_id: gameId,
@@ -111,8 +128,9 @@ export async function POST(request) {
         category,
         sku: product.kode_produk,
         apigames_price: basePrice,
+        provider,
         bonus,
-        _sort: diamondQty,
+        _sort: basePrice,
       };
     });
 
@@ -150,7 +168,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: `Sync selesai: ${synced} produk baru, ${updated} diperbarui dari ${filteredProducts.length} produk ${game.title}`,
+      message: `Sync selesai: ${synced} produk baru, ${updated} diperbarui dari ${filteredProducts.length} produk ${game.title} (aktif saja)`,
       stats: { synced, updated, total_products: products.length, filtered: filteredProducts.length },
     });
   } catch (error) {
