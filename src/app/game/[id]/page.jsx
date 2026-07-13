@@ -169,6 +169,9 @@ export default function GameDetail() {
     }
   }, [id]);
 
+  // Provider filter
+  const [selectedProvider, setSelectedProvider] = useState('all');
+
   // Derived categories
   const categories = useMemo(() => {
     const cats = new Set();
@@ -176,16 +179,31 @@ export default function GameDetail() {
     return Array.from(cats).sort();
   }, [items]);
 
-  // Filtered items based on category
+  // Derived providers
+  const providers = useMemo(() => {
+    const provs = new Map();
+    items.forEach(i => {
+      const p = i.provider || 'Lainnya';
+      provs.set(p, (provs.get(p) || 0) + 1);
+    });
+    return Array.from(provs.entries()).sort((a, b) => b[1] - a[1]);
+  }, [items]);
+
+  // Filtered items based on category + provider
   const filteredItems = useMemo(() => {
-    return items.filter(i => (i.category || 'All') === selectedCategory);
-  }, [items, selectedCategory]);
+    return items.filter(i => {
+      const catMatch = (i.category || 'All') === selectedCategory;
+      const provMatch = selectedProvider === 'all' || (i.provider || 'Lainnya') === selectedProvider;
+      return catMatch && provMatch;
+    });
+  }, [items, selectedCategory, selectedProvider]);
 
 
 
   // Handle item selection change to ensure we don't have stale selection
   useEffect(() => {
     setSelectedItem(null);
+    setSelectedProvider('all');
   }, [selectedCategory]);
 
   // Completion steps tracker
@@ -366,7 +384,7 @@ export default function GameDetail() {
               </div>
 
               {categories.length > 0 && (
-                <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
                   {categories.map(cat => (
                     <button 
                       key={cat}
@@ -378,6 +396,34 @@ export default function GameDetail() {
                       }`}
                     >
                       {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {providers.length > 1 && (
+                <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+                  <button
+                    onClick={() => setSelectedProvider('all')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                      selectedProvider === 'all'
+                        ? 'bg-secondary-container text-on-secondary-container'
+                        : 'bg-surface-container border border-outline-variant/50 text-on-surface-variant hover:bg-surface-container-high'
+                    }`}
+                  >
+                    Semua Provider
+                  </button>
+                  {providers.map(([p, count]) => (
+                    <button
+                      key={p}
+                      onClick={() => setSelectedProvider(p)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                        selectedProvider === p
+                          ? 'bg-secondary-container text-on-secondary-container'
+                          : 'bg-surface-container border border-outline-variant/50 text-on-surface-variant hover:bg-surface-container-high'
+                      }`}
+                    >
+                      {p} ({count})
                     </button>
                   ))}
                 </div>
@@ -411,6 +457,11 @@ export default function GameDetail() {
                               <span className={`material-symbols-outlined text-3xl ${isSelected ? 'text-primary' : 'text-primary/70'}`}>diamond</span>
                             )}
                             <span className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface text-center line-clamp-2 min-h-[48px] flex items-center">{item.name}</span>
+                            {item.provider && (
+                              <span className="inline-block px-2 py-0.5 rounded-full bg-secondary-container/50 text-on-secondary-container text-[9px] font-semibold tracking-wide uppercase">
+                                {item.provider}
+                              </span>
+                            )}
                             <span className="font-caption text-caption text-on-surface-variant uppercase font-bold tracking-wider mt-1">
                               Rp {Number(item.price).toLocaleString('id-ID')}
                             </span>

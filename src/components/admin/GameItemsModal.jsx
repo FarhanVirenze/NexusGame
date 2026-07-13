@@ -40,15 +40,26 @@ export default function GameItemsModal({ game, onClose }) {
     }
   }, [game]);
 
-  const providers = useMemo(() => {
-    const set = new Set(items.map(i => i.provider).filter(Boolean));
-    return Array.from(set).sort();
+  const providerStats = useMemo(() => {
+    const map = {};
+    items.forEach(i => {
+      const p = i.provider || 'Tanpa Provider';
+      if (!map[p]) map[p] = { total: 0, visible: 0, hidden: 0 };
+      map[p].total++;
+      if (i.visible === false) map[p].hidden++;
+      else map[p].visible++;
+    });
+    return map;
   }, [items]);
+
+  const providers = useMemo(() => {
+    return Object.keys(providerStats).sort();
+  }, [providerStats]);
 
   const filteredItems = useMemo(() => {
     let result = [...items];
     if (providerFilter !== 'all') {
-      result = result.filter(i => i.provider === providerFilter);
+      result = result.filter(i => (i.provider || 'Tanpa Provider') === providerFilter);
     }
     result.sort((a, b) => Number(a.price) - Number(b.price));
     return result;
@@ -76,6 +87,28 @@ export default function GameItemsModal({ game, onClose }) {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const toggleProviderVisibility = async (provider, visible) => {
+    const providerItems = items.filter(i => (i.provider || 'Tanpa Provider') === provider);
+    const newVisible = !visible;
+
+    for (const item of providerItems) {
+      await adminFetch('/api/admin/crud', {
+        method: 'PUT',
+        body: JSON.stringify({ table: 'game_items', id: item.id, data: { visible: newVisible } })
+      });
+    }
+
+    await fetchItems();
+  };
+
+  const toggleItemVisibility = async (item) => {
+    await adminFetch('/api/admin/crud', {
+      method: 'PUT',
+      body: JSON.stringify({ table: 'game_items', id: item.id, data: { visible: !item.visible } })
+    });
+    await fetchItems();
   };
 
   const openCreateForm = () => {
@@ -175,11 +208,11 @@ export default function GameItemsModal({ game, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-surface rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-surface rounded-2xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest">
           <div>
             <h2 className="font-headline-md text-headline-md text-on-surface">Manage Items</h2>
-            <p className="font-caption text-caption text-on-surface-variant">Game: {game.title} | {filteredItems.length} produk</p>
+            <p className="font-caption text-caption text-on-surface-variant">Game: {game.title} | {items.length} produk total</p>
           </div>
           <button onClick={onClose} className="text-on-surface-variant hover:text-error transition-colors">
             <span className="material-symbols-outlined">close</span>
@@ -210,33 +243,47 @@ export default function GameItemsModal({ game, onClose }) {
               </div>
 
               {providers.length > 0 && (
-                <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-                  <button
-                    onClick={() => setProviderFilter('all')}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      providerFilter === 'all'
-                        ? 'bg-primary text-on-primary'
-                        : 'bg-surface-container border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-                    }`}
-                  >
-                    Semua ({items.length})
-                  </button>
-                  {providers.map(p => {
-                    const count = items.filter(i => i.provider === p).length;
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setProviderFilter(p)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                          providerFilter === p
-                            ? 'bg-primary text-on-primary'
-                            : 'bg-surface-container border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-                        }`}
-                      >
-                        {p} ({count})
-                      </button>
-                    );
-                  })}
+                <div className="mb-4">
+                  <p className="text-xs text-on-surface-variant mb-2 font-medium">Filter Provider:</p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    <button
+                      onClick={() => setProviderFilter('all')}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                        providerFilter === 'all'
+                          ? 'bg-primary text-on-primary'
+                          : 'bg-surface-container border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                      }`}
+                    >
+                      Semua ({items.length})
+                    </button>
+                    {providers.map(p => {
+                      const stats = providerStats[p];
+                      const allHidden = stats.hidden === stats.total;
+                      return (
+                        <div key={p} className="flex items-center gap-1">
+                          <button
+                            onClick={() => setProviderFilter(p)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                              providerFilter === p
+                                ? 'bg-primary text-on-primary'
+                                : allHidden
+                                  ? 'bg-surface-container border border-outline-variant text-on-surface-variant/50 line-through'
+                                  : 'bg-surface-container border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                            }`}
+                          >
+                            {p} ({stats.visible}/{stats.total})
+                          </button>
+                          <button
+                            onClick={() => toggleProviderVisibility(p, !allHidden)}
+                            className={`p-1 rounded-full transition-colors ${allHidden ? 'text-error hover:bg-error/10' : 'text-green-600 hover:bg-green-50'}`}
+                            title={allHidden ? 'Tampilkan semua dari provider ini' : 'Sembunyikan semua dari provider ini'}
+                          >
+                            <span className="material-symbols-outlined text-[16px]">{allHidden ? 'visibility_off' : 'visibility'}</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -263,12 +310,13 @@ export default function GameItemsModal({ game, onClose }) {
                         <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Category</th>
                         <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Harga Jual</th>
                         <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Modal</th>
+                        <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-center">Visible</th>
                         <th className="p-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-outline-variant/20">
                       {filteredItems.map(item => (
-                        <tr key={item.id} className="hover:bg-surface-container/50 transition-colors">
+                        <tr key={item.id} className={`hover:bg-surface-container/50 transition-colors ${item.visible === false ? 'opacity-50' : ''}`}>
                           <td className="p-3 font-medium text-on-surface flex items-center gap-2">
                             {item.icon_url ? (
                               <img src={item.icon_url} alt="icon" className="w-6 h-6 object-contain" />
@@ -294,6 +342,15 @@ export default function GameItemsModal({ game, onClose }) {
                           <td className="p-3 text-sm font-semibold text-on-surface">Rp {Number(item.price).toLocaleString('id-ID')}</td>
                           <td className="p-3 text-xs text-on-surface-variant">
                             {item.apigames_price ? `Rp ${Number(item.apigames_price).toLocaleString('id-ID')}` : '-'}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => toggleItemVisibility(item)}
+                              className={`p-1.5 rounded-lg transition-colors ${item.visible === false ? 'text-error hover:bg-error/10' : 'text-green-600 hover:bg-green-50'}`}
+                              title={item.visible === false ? 'Sembunyikan dari user' : 'Tampilkan ke user'}
+                            >
+                              <span className="material-symbols-outlined text-[18px]">{item.visible === false ? 'visibility_off' : 'visibility'}</span>
+                            </button>
                           </td>
                           <td className="p-3 text-right">
                             <button onClick={() => openEditForm(item)} className="p-1.5 text-on-surface-variant hover:text-primary transition-colors">

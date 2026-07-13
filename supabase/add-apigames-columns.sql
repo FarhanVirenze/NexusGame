@@ -37,7 +37,11 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_transactions_apigames_trx_id ON transactions(apigames_trx_id);
 COMMENT ON COLUMN transactions.apigames_trx_id IS 'Transaction ID from APIGames.id API';
 
--- 4. Hapus kolom deposit Celestial yang ga kepake
+-- 4. game_items: tambah kolom visible untuk kontrol admin
+ALTER TABLE game_items ADD COLUMN IF NOT EXISTS visible BOOLEAN DEFAULT true;
+COMMENT ON COLUMN game_items.visible IS 'Admin toggle: false = hidden from users';
+
+-- 5. Hapus kolom deposit Celestial yang ga kepake
 ALTER TABLE transactions DROP COLUMN IF EXISTS celestial_deposit_id;
 ALTER TABLE transactions DROP COLUMN IF EXISTS celestial_deposit_status;
 ALTER TABLE transactions DROP COLUMN IF EXISTS celestial_deposit_qr;

@@ -11,6 +11,7 @@ export async function GET(request) {
         .from('game_items')
         .select('*')
         .eq('game_id', gameId)
+        .eq('visible', true)
         .order('price', { ascending: true });
 
       if (error) throw error;
