@@ -2,6 +2,8 @@ import React from 'react';
 import { supabaseServer } from '@/lib/supabaseServer';
 import RevenueChartWrapper from '@/components/admin/RevenueChartWrapper';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminComponent() {
   const [{ count: totalUsers }, { data: allTransactions }, { data: recentTransactions }] = await Promise.all([
     supabaseServer.from('users').select('*', { count: 'exact', head: true }),
