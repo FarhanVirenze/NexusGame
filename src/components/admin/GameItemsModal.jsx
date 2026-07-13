@@ -6,6 +6,8 @@ export default function GameItemsModal({ game, onClose }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [togglingProvider, setTogglingProvider] = useState(null);
+  const [togglingAll, setTogglingAll] = useState(false);
   const [providerFilter, setProviderFilter] = useState('all');
 
   const [showForm, setShowForm] = useState(false);
@@ -90,17 +92,42 @@ export default function GameItemsModal({ game, onClose }) {
   };
 
   const toggleProviderVisibility = async (provider, visible) => {
-    const providerItems = items.filter(i => (i.provider || 'Tanpa Provider') === provider);
     const newVisible = !visible;
-
-    for (const item of providerItems) {
-      await adminFetch('/api/admin/crud', {
-        method: 'PUT',
-        body: JSON.stringify({ table: 'game_items', id: item.id, data: { visible: newVisible } })
+    setTogglingProvider(provider);
+    try {
+      await adminFetch('/api/admin/crud-batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          table: 'game_items',
+          filter: { game_id: game.id, provider: provider === 'Tanpa Provider' ? null : provider },
+          data: { visible: newVisible }
+        })
       });
+      await fetchItems();
+    } catch (err) {
+      alert('Gagal update visibility: ' + err.message);
+    } finally {
+      setTogglingProvider(null);
     }
+  };
 
-    await fetchItems();
+  const toggleAllVisibility = async (visible) => {
+    setTogglingAll(true);
+    try {
+      await adminFetch('/api/admin/crud-batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          table: 'game_items',
+          filter: { game_id: game.id },
+          data: { visible }
+        })
+      });
+      await fetchItems();
+    } catch (err) {
+      alert('Gagal update visibility: ' + err.message);
+    } finally {
+      setTogglingAll(false);
+    }
   };
 
   const toggleItemVisibility = async (item) => {
@@ -244,7 +271,25 @@ export default function GameItemsModal({ game, onClose }) {
 
               {providers.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-xs text-on-surface-variant mb-2 font-medium">Filter Provider:</p>
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-xs text-on-surface-variant font-medium">Filter Provider:</p>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => toggleAllVisibility(true)}
+                        disabled={togglingAll}
+                        className="px-2 py-1 rounded text-[10px] font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                      >
+                        {togglingAll ? '...' : 'Tampilkan Semua'}
+                      </button>
+                      <button
+                        onClick={() => toggleAllVisibility(false)}
+                        disabled={togglingAll}
+                        className="px-2 py-1 rounded text-[10px] font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
+                      >
+                        {togglingAll ? '...' : 'Sembunyikan Semua'}
+                      </button>
+                    </div>
+                  </div>
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     <button
                       onClick={() => setProviderFilter('all')}
@@ -275,10 +320,11 @@ export default function GameItemsModal({ game, onClose }) {
                           </button>
                           <button
                             onClick={() => toggleProviderVisibility(p, !allHidden)}
-                            className={`p-1 rounded-full transition-colors ${allHidden ? 'text-error hover:bg-error/10' : 'text-green-600 hover:bg-green-50'}`}
+                            disabled={togglingProvider === p}
+                            className={`p-1 rounded-full transition-colors ${togglingProvider === p ? 'opacity-50' : allHidden ? 'text-error hover:bg-error/10' : 'text-green-600 hover:bg-green-50'}`}
                             title={allHidden ? 'Tampilkan semua dari provider ini' : 'Sembunyikan semua dari provider ini'}
                           >
-                            <span className="material-symbols-outlined text-[16px]">{allHidden ? 'visibility_off' : 'visibility'}</span>
+                            <span className={`material-symbols-outlined text-[16px] ${togglingProvider === p ? 'animate-spin' : ''}`}>{togglingProvider === p ? 'progress_activity' : allHidden ? 'visibility_off' : 'visibility'}</span>
                           </button>
                         </div>
                       );
